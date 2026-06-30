@@ -170,6 +170,40 @@ def test_script_generation_output_type() -> None:
 
 
 def test_video_rendering_output_type(tmp_path, monkeypatch) -> None:
+    from app.models.render import (
+        RenderArtifacts,
+        SceneAudio,
+        SceneClip,
+        SceneScreenshot,
+        SceneSubtitle,
+    )
+
+    class _FakeRenderPipeline:
+        def run(self, script_plan):
+            project_dir = tmp_path / "proj"
+            project_dir.mkdir(parents=True, exist_ok=True)
+            video_path = project_dir / "video.mp4"
+            video_path.write_text("video", encoding="utf-8")
+            scene_id = script_plan.script.scenes[0].scene_id
+            return RenderArtifacts(
+                project_dir=str(project_dir),
+                screenshots=[
+                    SceneScreenshot(scene_id=scene_id, image_path=str(project_dir / "s.png")),
+                ],
+                audio_files=[
+                    SceneAudio(
+                        scene_id=scene_id,
+                        audio_path=str(project_dir / "a.wav"),
+                        duration_seconds=5.0,
+                    ),
+                ],
+                subtitle_files=[
+                    SceneSubtitle(scene_id=scene_id, subtitle_path=str(project_dir / "s.ass")),
+                ],
+                scene_clips=[SceneClip(scene_id=scene_id, clip_path=str(project_dir / "c.mp4"))],
+                video_path=str(video_path),
+            )
+
     monkeypatch.setenv("OUTPUT_DIR", str(tmp_path))
     from app.config import reset_settings
 
@@ -181,9 +215,10 @@ def test_video_rendering_output_type(tmp_path, monkeypatch) -> None:
     script_plan = ScriptGenerationStage(
         generator=ScriptGenerator(gemini_client=_fake_script_client()),
     ).run(storyboard_result)
-    result = VideoRenderingStage().run(script_plan)
+    result = VideoRenderingStage(render_pipeline=_FakeRenderPipeline()).run(script_plan)
 
     assert result.success is True
     assert result.project.output_path is not None
+    assert result.project.artifacts is not None
     assert result.project.script.scenes[0].overlay == "Sample"
     assert str(tmp_path) in result.video_path

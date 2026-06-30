@@ -3,6 +3,7 @@
 from pydantic import BaseModel
 
 from app.models.document import Document
+from app.models.render import RenderArtifacts
 from app.models.script import Script
 from app.models.storyboard import Storyboard
 
@@ -13,4 +14,5 @@ class VideoProject(BaseModel):
     document: Document
     storyboard: Storyboard
     script: Script
+    artifacts: RenderArtifacts | None = None
     output_path: str | None = None

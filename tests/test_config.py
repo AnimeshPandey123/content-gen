@@ -11,6 +11,8 @@ def test_settings_defaults() -> None:
     assert settings.gemini_model == "gemini-2.0-flash"
     assert settings.section_selection_limit == 5
     assert settings.storyboard_max_scenes == 8
+    assert settings.screenshot_dpi == 300
+    assert settings.camera_motion == "ken_burns"
     assert settings.video_width == 1080
     assert settings.video_height == 1920
     assert settings.narration_speed == 1.0

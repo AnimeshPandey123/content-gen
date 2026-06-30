@@ -153,6 +153,46 @@ def mock_script_generation(monkeypatch) -> None:
     monkeypatch.setattr(ScriptGenerator, "generate_script", _fake_generate)
 
 
+def mock_render_pipeline(monkeypatch, tmp_path) -> None:
+    """Bypass FFmpeg during integration tests."""
+    from app.models.render import (
+        RenderArtifacts,
+        SceneAudio,
+        SceneClip,
+        SceneScreenshot,
+        SceneSubtitle,
+    )
+    from app.render.pipeline import RenderPipeline
+
+    def _fake_run(self, script_plan):
+        document_id = script_plan.storyboard_result.content_plan.document.id
+        project_dir = tmp_path / document_id
+        project_dir.mkdir(parents=True, exist_ok=True)
+        video_path = project_dir / f"{document_id}.mp4"
+        video_path.write_text("video", encoding="utf-8")
+        scene_id = script_plan.script.scenes[0].scene_id
+        return RenderArtifacts(
+            project_dir=str(project_dir),
+            screenshots=[
+                SceneScreenshot(scene_id=scene_id, image_path=str(project_dir / "s.png")),
+            ],
+            audio_files=[
+                SceneAudio(
+                    scene_id=scene_id,
+                    audio_path=str(project_dir / "a.wav"),
+                    duration_seconds=5.0,
+                ),
+            ],
+            subtitle_files=[
+                SceneSubtitle(scene_id=scene_id, subtitle_path=str(project_dir / "s.ass")),
+            ],
+            scene_clips=[SceneClip(scene_id=scene_id, clip_path=str(project_dir / "c.mp4"))],
+            video_path=str(video_path),
+        )
+
+    monkeypatch.setattr(RenderPipeline, "run", _fake_run)
+
+
 @pytest.fixture(autouse=True)
 def _reset_settings() -> None:
     reset_settings()

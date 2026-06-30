@@ -3,6 +3,7 @@
 from pydantic import BaseModel, Field
 
 from app.models.document import Document
+from app.models.render import RenderArtifacts
 from app.models.script import Script
 from app.models.section import Section
 from app.models.storyboard import Storyboard
@@ -42,4 +43,5 @@ class RenderResult(BaseModel):
 
     project: VideoProject
     video_path: str
+    artifacts: RenderArtifacts
     success: bool = True

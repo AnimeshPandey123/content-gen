@@ -1,35 +1,44 @@
-"""Placeholder video rendering stage."""
+"""Video rendering stage."""
 
-from pathlib import Path
-
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.models.pipeline import RenderResult, ScriptPlan
 from app.models.video_project import VideoProject
+from app.render.pipeline import RenderPipeline
 from app.workflows.stage import Stage
 
 
 class VideoRenderingStage(Stage[ScriptPlan, RenderResult]):
-    """Assemble assets and render a vertical MP4 (placeholder)."""
+    """Generate screenshots, narration, subtitles, and the final MP4."""
+
+    def __init__(
+        self,
+        *,
+        settings: Settings | None = None,
+        render_pipeline: RenderPipeline | None = None,
+    ) -> None:
+        self._settings = settings or get_settings()
+        self._render_pipeline = render_pipeline or RenderPipeline(settings=self._settings)
 
     @property
     def name(self) -> str:
         return "video_rendering"
 
     def run(self, input_model: ScriptPlan) -> RenderResult:
-        settings = get_settings()
         storyboard_result = input_model.storyboard_result
         document = storyboard_result.content_plan.document
 
-        output_dir = Path(settings.output_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
-        video_path = str(output_dir / f"{document.id}.mp4")
-
+        artifacts = self._render_pipeline.run(input_model)
         project = VideoProject(
             document=document,
             storyboard=storyboard_result.storyboard,
             script=input_model.script,
-            output_path=video_path,
+            artifacts=artifacts,
+            output_path=artifacts.video_path,
         )
 
-        # Placeholder: no actual video file is written yet.
-        return RenderResult(project=project, video_path=video_path, success=True)
+        return RenderResult(
+            project=project,
+            video_path=artifacts.video_path,
+            artifacts=artifacts,
+            success=True,
+        )

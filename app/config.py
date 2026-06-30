@@ -50,6 +50,22 @@ class Settings(BaseSettings):
     video_width: int = Field(default=1080, ge=1)
     video_height: int = Field(default=1920, ge=1)
     video_fps: int = Field(default=30, ge=1)
+    screenshot_dpi: int = Field(
+        default=300,
+        ge=72,
+        description="DPI for high-resolution PDF screenshot crops",
+    )
+    camera_motion: str = Field(
+        default="ken_burns",
+        description="Camera motion style: static, zoom, pan, ken_burns, highlight",
+    )
+    ffmpeg_path: str = Field(default="ffmpeg", description="Path to the FFmpeg binary")
+    subtitle_font_size: int = Field(default=72, ge=12, description="ASS subtitle font size")
+    words_per_minute: int = Field(
+        default=150,
+        ge=60,
+        description="Speaking rate used to estimate narration duration",
+    )
 
     # Narration
     narration_speed: float = Field(default=1.0, gt=0, description="Playback speed multiplier")

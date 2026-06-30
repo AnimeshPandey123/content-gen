@@ -40,6 +40,7 @@ class _AlwaysFailStage(Stage[PipelineInput, PipelineInput]):
 
 def test_full_pipeline_execution(tmp_path, monkeypatch, sample_pdf) -> None:
     from tests.conftest import (
+        mock_render_pipeline,
         mock_script_generation,
         mock_section_selection,
         mock_storyboard_generation,
@@ -48,6 +49,7 @@ def test_full_pipeline_execution(tmp_path, monkeypatch, sample_pdf) -> None:
     mock_section_selection(monkeypatch)
     mock_storyboard_generation(monkeypatch)
     mock_script_generation(monkeypatch)
+    mock_render_pipeline(monkeypatch, tmp_path)
     monkeypatch.setenv("OUTPUT_DIR", str(tmp_path))
 
     coordinator = PipelineCoordinator(build_default_stages())
@@ -61,6 +63,7 @@ def test_full_pipeline_execution(tmp_path, monkeypatch, sample_pdf) -> None:
     assert result.project.document.metadata.page_count == 2
     assert result.project.storyboard.document_id == "proj-1"
     assert len(result.project.script.scenes) >= 1
+    assert result.artifacts.video_path.endswith(".mp4")
 
 
 def test_coordinator_retries_transient_failures() -> None:

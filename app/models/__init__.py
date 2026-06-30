@@ -24,6 +24,13 @@ from app.models.pipeline import (
     ScriptPlan,
     StoryboardResult,
 )
+from app.models.render import (
+    RenderArtifacts,
+    SceneAudio,
+    SceneClip,
+    SceneScreenshot,
+    SceneSubtitle,
+)
 from app.models.scene import Scene, SceneSource, SceneVisual
 from app.models.screenshot import ScreenshotRegion
 from app.models.script import Script, ScriptScene
@@ -43,8 +50,13 @@ __all__ = [
     "Page",
     "Paragraph",
     "PipelineInput",
+    "RenderArtifacts",
     "RenderResult",
     "Scene",
+    "SceneAudio",
+    "SceneClip",
+    "SceneScreenshot",
+    "SceneSubtitle",
     "SceneSource",
     "SceneVisual",
     "Script",
