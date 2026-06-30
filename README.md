@@ -14,7 +14,8 @@ flowchart LR
     PDF[PDF] --> Extract
     Extract --> Parse[Semantic parse]
     Parse --> Sections[Section selection]
-    Sections --> Storyboard
+    Sections --> Brief[Paper brief]
+    Brief --> Storyboard
     Storyboard --> Script
   end
 
@@ -29,10 +30,14 @@ flowchart LR
 
 | Phase | Steps | What happens |
 |-------|-------|--------------|
-| Planning | Extract → Parse → Section selection → Storyboard → Script | PyMuPDF extracts text and layout. Gemini picks the most important sections, plans scenes and camera shots, then writes narration. |
+| Planning | Extract → Parse → Section selection → Paper brief → Storyboard → Script | PyMuPDF extracts text and layout. Gemini picks sections, synthesizes a structured paper brief, plans scenes and camera shots, then writes grounded narration. |
 | Rendering | Screenshots → Voice → Subtitles → Video assembly | Crops PDF regions per shot, synthesizes speech, burns karaoke captions, and stitches clips with FFmpeg. |
 
 Every rendering step writes files to disk. You can regenerate subtitles without redoing voice, or re-run FFmpeg without repeating the expensive AI stages.
+
+## Paper brief
+
+After section selection, Gemini reads the **full text** of the chosen sections and produces a structured **paper brief** (problem, mechanism, evidence with numbers, limitations, so-what). The storyboard planner uses this brief to shape scene goals; the script writer gets the brief plus **exact source excerpts** (section body, source paragraph, figure captions) for each scene so narration stays grounded in the paper—not generic summaries.
 
 ## Camera planning
 

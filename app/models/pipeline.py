@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, Field
 
 from app.models.document import Document
+from app.models.paper_brief import PaperBrief
 from app.models.script import Script
 from app.models.section import Section
 from app.models.storyboard import Storyboard
@@ -28,6 +29,7 @@ class ContentPlan(BaseModel):
 
     document: Document
     selected_sections: list[Section] = Field(min_length=1)
+    paper_brief: PaperBrief | None = None
 
 
 class StoryboardResult(BaseModel):

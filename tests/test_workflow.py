@@ -40,6 +40,7 @@ class _AlwaysFailStage(Stage[PipelineInput, PipelineInput]):
 
 def test_full_pipeline_execution(tmp_path, monkeypatch, sample_pdf) -> None:
     from tests.conftest import (
+        mock_paper_brief,
         mock_render_stages,
         mock_script_generation,
         mock_section_selection,
@@ -47,6 +48,7 @@ def test_full_pipeline_execution(tmp_path, monkeypatch, sample_pdf) -> None:
     )
 
     mock_section_selection(monkeypatch)
+    mock_paper_brief(monkeypatch)
     mock_storyboard_generation(monkeypatch)
     mock_script_generation(monkeypatch)
     mock_render_stages(monkeypatch, tmp_path)

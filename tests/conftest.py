@@ -90,6 +90,26 @@ def sample_video_plan(**overrides):
     return VideoPlan(**values)
 
 
+def sample_brief_response():
+    """Return a typical LLM paper brief response for tests."""
+    from app.models.paper_brief import PaperBriefResponse
+
+    return PaperBriefResponse(
+        problem="Training large models is expensive.",
+        key_insight="A new attention pattern cuts compute while keeping accuracy.",
+        mechanism="Queries attend to a sparse subset of keys instead of all tokens.",
+        evidence=[
+            {
+                "claim": "Matches baseline accuracy",
+                "detail": "Within 0.2 BLEU of the full model on WMT14",
+                "source_section": "Results",
+            },
+        ],
+        limitations="Evaluated mainly on translation benchmarks.",
+        so_what="Cheaper training could democratize large-model research.",
+    )
+
+
 def sample_scene(**overrides) -> Scene:
     values = {
         "id": "scene-1",
@@ -116,6 +136,30 @@ def sample_pdf(tmp_path: Path) -> Path:
 @pytest.fixture
 def semantic_pdf(tmp_path: Path) -> Path:
     return write_semantic_pdf(tmp_path / "semantic.pdf")
+
+
+def mock_paper_brief(monkeypatch) -> None:
+    """Bypass Gemini during integration tests."""
+    from app.models.paper_brief import PaperBrief
+    from app.services.paper_brief_generator import PaperBriefGenerator
+
+    def _fake_brief(self, content_plan):
+        return PaperBrief(
+            problem="The paper addresses a hard problem.",
+            key_insight="A clever shortcut changes the tradeoff.",
+            mechanism="It reuses intermediate representations across layers.",
+            evidence=[
+                {
+                    "claim": "Strong result",
+                    "detail": "Matches prior work with half the compute",
+                    "source_section": content_plan.selected_sections[0].title,
+                },
+            ],
+            limitations="Tested on one benchmark only.",
+            so_what="Cheaper training helps more researchers experiment.",
+        )
+
+    monkeypatch.setattr(PaperBriefGenerator, "generate_brief", _fake_brief)
 
 
 def mock_section_selection(monkeypatch) -> None:

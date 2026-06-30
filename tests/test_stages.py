@@ -16,9 +16,11 @@ from app.models.storyboard_generation import (
     PlannedSceneSource,
     StoryboardGenerationResponse,
 )
+from app.services.paper_brief_generator import PaperBriefGenerator
 from app.services.script_generator import ScriptGenerator
 from app.services.stages.content_planning import ContentPlanningStage
 from app.services.stages.document_extraction import DocumentExtractionStage
+from app.services.stages.paper_brief import PaperBriefStage
 from app.services.stages.screenshot_generation import ScreenshotGenerationStage
 from app.services.stages.script_generation import ScriptGenerationStage
 from app.services.stages.semantic_parsing import SemanticParsingStage
@@ -30,6 +32,7 @@ from app.services.storyboard_generator import StoryboardGenerator
 from app.workflows.stage import Stage
 
 from tests.conftest import sample_planned_shots, sample_video_plan
+from tests.conftest import sample_brief_response
 
 
 def _sample_document() -> Document:
@@ -102,6 +105,7 @@ def test_all_stages_implement_stage_interface() -> None:
         DocumentExtractionStage(),
         SemanticParsingStage(),
         ContentPlanningStage(),
+        PaperBriefStage(),
         StoryboardGenerationStage(),
         ScriptGenerationStage(),
         ScreenshotGenerationStage(),
@@ -157,6 +161,20 @@ def test_content_planning_output_type() -> None:
     assert isinstance(result, ContentPlan)
     assert len(result.selected_sections) == 1
     assert result.selected_sections[0].importance_score == 0.9
+
+
+def test_paper_brief_stage_output_type() -> None:
+    class _FakeClient:
+        def generate_model(self, prompt, response_model):
+            return sample_brief_response()
+
+    stage = PaperBriefStage(
+        generator=PaperBriefGenerator(gemini_client=_FakeClient()),
+    )
+    result = stage.run(_sample_content_plan())
+    assert isinstance(result, ContentPlan)
+    assert result.paper_brief is not None
+    assert result.paper_brief.so_what
 
 
 def test_storyboard_generation_output_type() -> None:

@@ -1,9 +1,11 @@
 """Unit tests for storyboard prompt building."""
 
+from app.models.paper_brief import PaperBrief
 from app.models.pipeline import ContentPlan
 from app.models.section import Section
 from app.prompts.storyboard import _format_visual_catalog, build_storyboard_prompt
 
+from tests.conftest import sample_brief_response
 from tests.test_figure_detector import _document_with_visuals
 from tests.test_stages import _sample_document
 
@@ -41,6 +43,31 @@ def test_build_storyboard_prompt_lets_llm_decide_structure() -> None:
     assert "Creative direction" in prompt
     assert "shareable" in prompt
     assert "Return at most" not in prompt
+
+
+def test_build_storyboard_prompt_includes_paper_brief_when_present() -> None:
+    document = _sample_document()
+    brief = PaperBrief.model_validate(sample_brief_response().model_dump())
+    content_plan = ContentPlan(
+        document=document,
+        selected_sections=[
+            Section(
+                id="sec-1",
+                title="Results",
+                content="We achieved 95% accuracy.",
+                page_numbers=[1],
+                paragraph_indices=[1],
+                importance_score=0.95,
+            ),
+        ],
+        paper_brief=brief,
+    )
+
+    prompt = build_storyboard_prompt(content_plan)
+
+    assert "Paper brief" in prompt
+    assert brief.key_insight in prompt
+    assert "mechanism and evidence" in prompt
 
 
 def test_format_visual_catalog_lists_detected_visuals() -> None:

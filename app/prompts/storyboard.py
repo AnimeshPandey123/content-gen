@@ -3,6 +3,7 @@
 from app.models.pipeline import ContentPlan
 from app.models.section import Section
 from app.services.figure_detector import FigureDetector
+from app.services.source_context import format_paper_brief
 from app.services.screenshot_region_planner import ScreenshotRegionPlanner
 
 
@@ -21,13 +22,19 @@ def build_storyboard_prompt(content_plan: ContentPlan) -> str:
         or "- No paragraphs available"
     )
     visuals = _format_visual_catalog(document)
+    brief_block = ""
+    if content_plan.paper_brief is not None:
+        brief_block = f"""
+Paper brief (use this to plan a deep narrative—not surface summaries):
+{format_paper_brief(content_plan.paper_brief)}
+"""
 
     return f"""You are planning a short-form vertical video storyboard from a document.
 The video should feel informative, visually appealing, and shareable—like a great science
 explainer on TikTok, Reels, or Shorts. Stay credible: no clickbait, no invented claims.
 
 Document title: {document.title or "Untitled"}
-
+{brief_block}
 Selected sections:
 {sections}
 
@@ -92,6 +99,7 @@ Rules:
 - plan.min_scene_duration_seconds is the shortest scene you are willing to use.
 - Order scenes for a clear narrative arc: hook, evidence, then build toward a takeaway.
   Do not plan a separate outro scene—the closing scene is added automatically.
+- When a paper brief is provided, scene goals must reflect its mechanism and evidence—not generic labels.
 - The last content scene should present evidence or results, not the final wrap-up narration.
 - source.section must match one of the selected section titles exactly.
 - source.page and source.paragraph must refer to an available paragraph.

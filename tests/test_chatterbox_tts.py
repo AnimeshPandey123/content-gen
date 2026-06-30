@@ -139,6 +139,20 @@ def test_chatterbox_voice_synthesizer_raises_when_api_fails(tmp_path: Path) -> N
             synthesizer.synthesize("Hello", tmp_path / "scene01.wav", duration_seconds=1.0)
 
 
+def test_chatterbox_voice_synthesizer_raises_on_http_error(tmp_path: Path) -> None:
+    error = urllib.error.HTTPError(
+        url="http://127.0.0.1:4123/v1/audio/speech",
+        code=500,
+        msg="Internal Server Error",
+        hdrs=None,
+        fp=io.BytesIO(b"server exploded"),
+    )
+    with patch("urllib.request.urlopen", side_effect=error):
+        synthesizer = ChatterboxVoiceSynthesizer(api_url="http://127.0.0.1:4123")
+        with pytest.raises(VoiceGeneratorError, match="500"):
+            synthesizer.synthesize("Hello", tmp_path / "scene01.wav", duration_seconds=1.0)
+
+
 def test_chatterbox_voice_synthesizer_raises_on_empty_response(tmp_path: Path) -> None:
     with patch("urllib.request.urlopen", return_value=_mock_urlopen(b"")):
         synthesizer = ChatterboxVoiceSynthesizer(api_url="http://127.0.0.1:4123")
