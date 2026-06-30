@@ -13,6 +13,7 @@ def test_settings_defaults() -> None:
     assert settings.video_height == 1920
     assert settings.narration_speed == 1.0
     assert settings.max_retries == 3
+    assert settings.screenshot_padding == 4.0
 
 
 def test_settings_from_environment(monkeypatch, tmp_path) -> None:
@@ -22,6 +23,7 @@ def test_settings_from_environment(monkeypatch, tmp_path) -> None:
     monkeypatch.setenv("VIDEO_HEIGHT", "1280")
     monkeypatch.setenv("NARRATION_SPEED", "1.25")
     monkeypatch.setenv("MAX_RETRIES", "5")
+    monkeypatch.setenv("SCREENSHOT_PADDING", "0")
     monkeypatch.setenv("LOG_LEVEL", "DEBUG")
     monkeypatch.setenv("LOG_JSON", "true")
 
@@ -33,5 +35,6 @@ def test_settings_from_environment(monkeypatch, tmp_path) -> None:
     assert settings.video_height == 1280
     assert settings.narration_speed == 1.25
     assert settings.max_retries == 5
+    assert settings.screenshot_padding == 0.0
     assert settings.log_level == "DEBUG"
     assert settings.log_json is True

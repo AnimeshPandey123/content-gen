@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     # Paths
     output_dir: Path = Field(default=Path("output"), description="Directory for generated assets")
     page_image_dpi: int = Field(default=150, ge=72, description="DPI for rendered page images")
+    screenshot_padding: float = Field(
+        default=4.0,
+        ge=0,
+        description="Padding in PDF points added around paragraph screenshot regions",
+    )
 
     # Video rendering
     video_width: int = Field(default=1080, ge=1)

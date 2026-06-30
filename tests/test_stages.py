@@ -1,5 +1,7 @@
 """Unit tests for stage interface contracts."""
 
+from app.models.blocks import Paragraph
+from app.models.bounding_box import BoundingBox
 from app.models.document import Document
 from app.models.metadata import DocumentMetadata
 from app.models.page import Page
@@ -28,7 +30,22 @@ def _sample_document() -> Document:
         id="doc-test",
         source_path="/tmp/test.pdf",
         metadata=DocumentMetadata(page_count=1),
-        pages=[Page(page_number=1, text="Sample", width=612, height=792)],
+        pages=[
+            Page(
+                page_number=1,
+                text="Sample",
+                width=612,
+                height=792,
+                blocks=[
+                    Paragraph(
+                        id="p1",
+                        order=0,
+                        text="Sample",
+                        bbox=BoundingBox(x=72, y=72, width=400, height=18),
+                    ),
+                ],
+            ),
+        ],
     )
 
 
@@ -100,6 +117,8 @@ def test_screenshot_planning_output_type() -> None:
     result = ScreenshotPlanningStage().run(storyboard_result)
     assert isinstance(result, ScreenshotPlan)
     assert len(result.regions) >= 1
+    assert result.regions[0].paragraph_index == 1
+    assert result.regions[0].width > 0
 
 
 def test_narration_generation_output_type() -> None:
