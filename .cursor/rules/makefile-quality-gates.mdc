@@ -1,0 +1,32 @@
+---
+description: Run make lint after changes and make test before commits
+alwaysApply: true
+---
+
+# Quality gates (Makefile)
+
+This project uses `Makefile` targets for linting and testing.
+
+## After every code change
+
+When you finish a batch of edits, run:
+
+```bash
+make lint
+```
+
+Fix any lint failures before considering the work done. Do not leave lint broken.
+
+## Before every commit
+
+When the user asks you to commit (or you are about to commit), run:
+
+```bash
+make test
+```
+
+Only proceed with the commit if tests pass. Fix failures first.
+
+## Setup
+
+If tooling is missing, run `make install` once to create `.venv` and install dev dependencies.
