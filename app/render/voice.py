@@ -1,6 +1,9 @@
 """Generate narration audio assets for script scenes."""
 
+import json
 import struct
+import urllib.error
+import urllib.request
 import wave
 from pathlib import Path
 
@@ -152,12 +155,113 @@ class GeminiVoiceSynthesizer(VoiceSynthesizer):
         return frame_count / self._sample_rate
 
 
+class ChatterboxVoiceSynthesizer(VoiceSynthesizer):
+    """Generate narration audio via a locally hosted Chatterbox TTS API."""
+
+    def __init__(
+        self,
+        *,
+        api_url: str,
+        voice: str | None = None,
+        exaggeration: float = 0.5,
+        cfg_weight: float = 0.5,
+        temperature: float = 0.8,
+        request_timeout_seconds: float = 120.0,
+        settings: Settings | None = None,
+    ) -> None:
+        self._api_url = api_url.rstrip("/")
+        self._voice = voice
+        self._exaggeration = exaggeration
+        self._cfg_weight = cfg_weight
+        self._temperature = temperature
+        self._request_timeout_seconds = request_timeout_seconds
+        self._settings = settings
+
+    def synthesize(self, text: str, output_path: Path, *, duration_seconds: float) -> float:
+        cleaned = text.strip()
+        if not cleaned:
+            raise VoiceGeneratorError("Chatterbox TTS requires non-empty narration text")
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        audio_bytes = self._request_speech(cleaned)
+        output_path.write_bytes(audio_bytes)
+        actual_duration = probe_wav_duration(output_path)
+        return self._fit_to_scene_duration(output_path, duration_seconds, actual_duration)
+
+    def _request_speech(self, text: str) -> bytes:
+        payload: dict[str, object] = {
+            "input": text,
+            "exaggeration": self._exaggeration,
+            "cfg_weight": self._cfg_weight,
+            "temperature": self._temperature,
+        }
+        if self._voice:
+            payload["voice"] = self._voice
+
+        request = urllib.request.Request(
+            f"{self._api_url}/v1/audio/speech",
+            data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(
+                request,
+                timeout=self._request_timeout_seconds,
+            ) as response:
+                audio_bytes = response.read()
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode(errors="replace")
+            raise VoiceGeneratorError(
+                f"Chatterbox TTS request failed ({exc.code}): {body}",
+            ) from exc
+        except urllib.error.URLError as exc:
+            raise VoiceGeneratorError(f"Chatterbox TTS request failed: {exc.reason}") from exc
+
+        if not audio_bytes:
+            raise VoiceGeneratorError("Chatterbox TTS returned empty audio data")
+
+        return audio_bytes
+
+    def _fit_to_scene_duration(
+        self,
+        output_path: Path,
+        target_seconds: float,
+        actual_duration: float,
+    ) -> float:
+        settings = getattr(self, "_settings", None)
+        if settings is None:
+            return actual_duration
+
+        if not settings.tts_fit_scene_duration:
+            return actual_duration
+
+        return fit_audio_to_duration(
+            input_path=output_path,
+            target_seconds=target_seconds,
+            ffmpeg_path=settings.ffmpeg_path,
+            max_tempo=settings.tts_max_tempo,
+        )
+
+
 def build_voice_synthesizer(settings: Settings | None = None) -> VoiceSynthesizer:
     """Return the configured voice synthesizer."""
     settings = settings or get_settings()
 
     if settings.voice_synthesizer == "silent":
         return WaveVoiceSynthesizer()
+
+    if settings.voice_synthesizer == "chatterbox":
+        return ChatterboxVoiceSynthesizer(
+            api_url=settings.chatterbox_api_url,
+            voice=settings.chatterbox_voice,
+            exaggeration=settings.chatterbox_exaggeration,
+            cfg_weight=settings.chatterbox_cfg_weight,
+            temperature=settings.chatterbox_temperature,
+            request_timeout_seconds=settings.chatterbox_request_timeout_seconds,
+            settings=settings,
+        )
 
     if not settings.gemini_api_key:
         raise VoiceGeneratorError(

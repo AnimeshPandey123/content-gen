@@ -131,10 +131,15 @@ The storyboard LLM returns a `plan` object (`target_video_duration_seconds`, `ti
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VOICE_SYNTHESIZER` | `gemini` | Voice backend: `gemini` or `silent` |
+| `VOICE_SYNTHESIZER` | `gemini` | Voice backend: `gemini`, `chatterbox`, or `silent` |
 | `TTS_MODEL` | `gemini-2.5-flash-preview-tts` | Gemini TTS model |
 | `TTS_VOICE` | `Kore` | Prebuilt Gemini voice name |
 | `TTS_SAMPLE_RATE` | `24000` | Output WAV sample rate |
+| `CHATTERBOX_API_URL` | `http://127.0.0.1:4123` | Base URL for local Chatterbox TTS API |
+| `CHATTERBOX_VOICE` | — | Voice name in Chatterbox library (server default when unset) |
+| `CHATTERBOX_EXAGGERATION` | `0.5` | Chatterbox emotion intensity |
+| `CHATTERBOX_CFG_WEIGHT` | `0.5` | Chatterbox pace control |
+| `CHATTERBOX_TEMPERATURE` | `0.8` | Chatterbox sampling randomness |
 | `TTS_FIT_SCENE_DURATION` | `true` | Speed up narration when TTS exceeds scene budget |
 | `TTS_MAX_TEMPO` | `1.35` | Max speed-up when fitting scene duration |
 | `WORDS_PER_MINUTE` | `150` | Speaking rate for duration estimates |

@@ -15,6 +15,7 @@ from app.render.project import (
 from app.render.screenshot import ScreenshotGenerator, ScreenshotGeneratorError
 from app.render.subtitles import SubtitleGenerator
 from app.render.voice import (
+    ChatterboxVoiceSynthesizer,
     GeminiVoiceSynthesizer,
     VoiceGenerator,
     VoiceGeneratorError,
@@ -31,6 +32,7 @@ __all__ = [
     "ScreenshotGeneratorError",
     "SubtitleGenerator",
     "VideoAssembler",
+    "ChatterboxVoiceSynthesizer",
     "GeminiVoiceSynthesizer",
     "VoiceGenerator",
     "VoiceGeneratorError",

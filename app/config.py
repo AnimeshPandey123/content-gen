@@ -117,7 +117,7 @@ class Settings(BaseSettings):
     narration_speed: float = Field(default=1.0, gt=0, description="Playback speed multiplier")
     voice_synthesizer: str = Field(
         default="gemini",
-        description="Voice backend: gemini (Gemini TTS) or silent (placeholder WAV)",
+        description="Voice backend: gemini, chatterbox (local API), or silent (placeholder WAV)",
     )
     tts_model: str = Field(
         default="gemini-2.5-flash-preview-tts",
@@ -141,6 +141,37 @@ class Settings(BaseSettings):
         ge=1.0,
         le=2.0,
         description="Maximum narration speed-up applied when fitting scene duration",
+    )
+    chatterbox_api_url: str = Field(
+        default="http://127.0.0.1:4123",
+        description="Base URL for a locally hosted Chatterbox TTS API (OpenAI-compatible)",
+    )
+    chatterbox_voice: str | None = Field(
+        default=None,
+        description="Voice name in the Chatterbox voice library (server default when unset)",
+    )
+    chatterbox_exaggeration: float = Field(
+        default=0.5,
+        ge=0.25,
+        le=2.0,
+        description="Chatterbox emotion intensity (exaggeration parameter)",
+    )
+    chatterbox_cfg_weight: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Chatterbox pace control (cfg_weight parameter)",
+    )
+    chatterbox_temperature: float = Field(
+        default=0.8,
+        ge=0.05,
+        le=5.0,
+        description="Chatterbox sampling randomness (temperature parameter)",
+    )
+    chatterbox_request_timeout_seconds: float = Field(
+        default=120.0,
+        ge=1.0,
+        description="HTTP timeout for Chatterbox TTS requests",
     )
 
     # Workflow
