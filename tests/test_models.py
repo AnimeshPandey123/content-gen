@@ -6,6 +6,7 @@ import pytest
 from app.models import (
     Caption,
     Document,
+    DocumentMetadata,
     Narration,
     Page,
     PipelineInput,
@@ -47,6 +48,7 @@ def test_models_serialize_to_json() -> None:
     document = Document(
         id="doc-1",
         source_path="/tmp/sample.pdf",
+        metadata=DocumentMetadata(page_count=1),
         pages=[Page(page_number=1, text="Hello")],
         sections=[
             Section(id="sec-1", title="Intro", content="Hello", page_numbers=[1]),
@@ -74,5 +76,6 @@ def test_models_serialize_to_json() -> None:
 
     payload = json.loads(project.model_dump_json())
     assert payload["document"]["id"] == "doc-1"
+    assert payload["document"]["raw_text"] == "Hello"
     assert payload["storyboard"]["scenes"][0]["id"] == "sc-1"
     assert payload["captions"][0]["text"] == "Hello world"

@@ -2,6 +2,7 @@
 
 from app.models.caption import Caption
 from app.models.document import Document
+from app.models.metadata import DocumentMetadata
 from app.models.narration import Narration
 from app.models.page import Page
 from app.models.pipeline import (
@@ -24,6 +25,7 @@ __all__ = [
     "CaptionPlan",
     "ContentPlan",
     "Document",
+    "DocumentMetadata",
     "Narration",
     "NarrationPlan",
     "Page",

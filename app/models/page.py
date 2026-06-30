@@ -10,3 +10,4 @@ class Page(BaseModel):
     text: str = Field(default="", description="Extracted plain text")
     width: float | None = Field(default=None, ge=0, description="Page width in points")
     height: float | None = Field(default=None, ge=0, description="Page height in points")
+    image_path: str | None = Field(default=None, description="Path to rendered page image")

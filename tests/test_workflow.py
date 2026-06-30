@@ -37,15 +37,18 @@ class _AlwaysFailStage(Stage[PipelineInput, PipelineInput]):
         raise ValueError("permanent failure")
 
 
-def test_full_pipeline_execution(tmp_path, monkeypatch) -> None:
+def test_full_pipeline_execution(tmp_path, monkeypatch, sample_pdf) -> None:
     monkeypatch.setenv("OUTPUT_DIR", str(tmp_path))
 
     coordinator = PipelineCoordinator(build_default_stages())
-    result = coordinator.execute(PipelineInput(pdf_path="/tmp/sample.pdf", project_id="proj-1"))
+    result = coordinator.execute(
+        PipelineInput(pdf_path=str(sample_pdf), project_id="proj-1"),
+    )
 
     assert isinstance(result, RenderResult)
     assert result.success is True
     assert result.project.document.id == "proj-1"
+    assert result.project.document.metadata.page_count == 2
     assert result.project.storyboard.document_id == "proj-1"
     assert len(result.project.captions) >= 1
 
@@ -71,7 +74,7 @@ def test_coordinator_raises_after_exhausted_retries() -> None:
     assert exc_info.value.attempts == 2
 
 
-def test_coordinator_chains_multiple_stages() -> None:
+def test_coordinator_chains_multiple_stages(tmp_path, sample_pdf) -> None:
     from app.models.document import Document
     from app.services.stages.document_extraction import DocumentExtractionStage
 
@@ -84,12 +87,13 @@ def test_coordinator_chains_multiple_stages() -> None:
             return input_model
 
     coordinator = PipelineCoordinator(
-        [_PassThroughStage(), DocumentExtractionStage()],
-        settings=Settings(max_retries=0),
+        [_PassThroughStage(), DocumentExtractionStage(settings=Settings(output_dir=tmp_path))],
+        settings=Settings(max_retries=0, output_dir=tmp_path),
     )
-    result = coordinator.execute(PipelineInput(pdf_path="/tmp/ok.pdf"))
+    result = coordinator.execute(PipelineInput(pdf_path=str(sample_pdf)))
     assert isinstance(result, Document)
-    assert result.source_path == "/tmp/ok.pdf"
+    assert result.source_path == str(sample_pdf.resolve())
+    assert result.metadata.page_count == 2
 
 
 def test_stage_execution_logs_timing(monkeypatch) -> None:

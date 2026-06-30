@@ -1,6 +1,7 @@
 """Unit tests for stage interface contracts."""
 
 from app.models.document import Document
+from app.models.metadata import DocumentMetadata
 from app.models.page import Page
 from app.models.pipeline import (
     CaptionPlan,
@@ -25,6 +26,7 @@ def _sample_document() -> Document:
     return Document(
         id="doc-test",
         source_path="/tmp/test.pdf",
+        metadata=DocumentMetadata(page_count=1),
         pages=[Page(page_number=1, text="Sample", width=612, height=792)],
     )
 
@@ -51,11 +53,17 @@ def test_all_stages_implement_stage_interface() -> None:
         assert len(stage.name) > 0
 
 
-def test_document_extraction_output_type() -> None:
-    stage = DocumentExtractionStage()
-    result = stage.run(PipelineInput(pdf_path="/tmp/a.pdf", project_id="p1"))
+def test_document_extraction_output_type(tmp_path, sample_pdf) -> None:
+    from app.config import Settings
+
+    stage = DocumentExtractionStage(settings=Settings(output_dir=tmp_path / "output"))
+    result = stage.run(PipelineInput(pdf_path=str(sample_pdf), project_id="p1"))
     assert isinstance(result, Document)
-    assert result.source_path == "/tmp/a.pdf"
+    assert result.source_path == str(sample_pdf.resolve())
+    assert result.metadata.page_count == 2
+    assert len(result.pages) == 2
+    assert result.raw_text
+    assert all(page.image_path for page in result.pages)
 
 
 def test_content_planning_output_type() -> None:

@@ -20,6 +20,7 @@ class Settings(BaseSettings):
 
     # Paths
     output_dir: Path = Field(default=Path("output"), description="Directory for generated assets")
+    page_image_dpi: int = Field(default=150, ge=72, description="DPI for rendered page images")
 
     # Video rendering
     video_width: int = Field(default=1080, ge=1)
