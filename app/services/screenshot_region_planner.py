@@ -299,10 +299,16 @@ class ScreenshotRegionPlanner:
             width = height * target_ratio
 
         width = min(width, page_width)
-        height = min(height, page_height * 0.9)
+        height = min(height, page_height * 0.92)
 
-        x = max(0.0, min(center_x - width / 2, page_width - width))
-        y = max(0.0, min(center_y - height / 2, page_height - height))
+        if height >= page_height * 0.65:
+            y = 0.0
+            height = min(page_height * 0.92, page_height)
+            x = 0.0
+            width = page_width
+        else:
+            x = max(0.0, min(center_x - width / 2, page_width - width))
+            y = max(0.0, min(center_y - height / 2, page_height - height))
         return BoundingBox(x=x, y=y, width=width, height=height)
 
     def _fit_mobile_aspect(
@@ -320,14 +326,19 @@ class ScreenshotRegionPlanner:
         anchor_bbox = anchor or bbox
         page_width, page_height = self._page_size(page, bbox)
         width = page_width
-        center_y = anchor_bbox.y + anchor_bbox.height / 2
 
         floor_height = min_height or 0.0
-        content_height = max(bbox.height, anchor_bbox.height * 5.0, floor_height)
-        max_height = page_height * 0.85
+        content_height = max(bbox.height, anchor_bbox.height * 8.0, floor_height)
+        max_height = page_height * 0.92
         height = min(max(content_height, floor_height), max_height)
 
-        y = max(0.0, min(center_y - height / 2, page_height - height))
+        if height >= page_height * 0.65:
+            y = 0.0
+            height = min(page_height * 0.92, page_height)
+        else:
+            center_y = anchor_bbox.y + anchor_bbox.height / 2
+            y = max(0.0, min(center_y - height * 0.45, page_height - height))
+
         return BoundingBox(x=0.0, y=y, width=width, height=height)
 
     def _page_size(self, page: Page, bbox: BoundingBox) -> tuple[float, float]:

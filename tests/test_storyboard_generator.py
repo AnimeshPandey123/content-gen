@@ -11,6 +11,7 @@ from app.models.storyboard_generation import (
 from app.services.storyboard_generator import (
     StoryboardGenerationError,
     StoryboardGenerator,
+    _find_closing_section,
     _match_section,
 )
 
@@ -84,7 +85,7 @@ def test_generate_storyboard_builds_scene_models() -> None:
 
     storyboard = generator.generate_storyboard(_content_plan())
 
-    assert len(storyboard.scenes) == 2
+    assert len(storyboard.scenes) == 3
     intro = storyboard.scenes[0]
     assert intro.goal == "Show the paper title page"
     assert intro.order == 0
@@ -95,6 +96,10 @@ def test_generate_storyboard_builds_scene_models() -> None:
     assert scene.source.paragraph == 1
     assert len(scene.shots) >= 1
     assert scene.visual.crop.width > 0
+
+    outro = storyboard.scenes[2]
+    assert outro.goal == "Conclude with the paper's main takeaway"
+    assert outro.id.endswith("-scene-outro")
 
 
 def test_generate_storyboard_requires_api_key_when_client_not_injected() -> None:
@@ -252,6 +257,38 @@ def test_generate_storyboard_fits_duration_budget() -> None:
     assert any(segment.kind == "transition" for segment in storyboard.timeline.segments)
 
 
+def test_generate_storyboard_skips_closing_scene_when_no_content_scenes() -> None:
+    from tests.conftest import sample_scene
+
+    generator = StoryboardGenerator()
+    plan = _content_plan()
+    scene = sample_scene(id="scene-intro", order=0)
+
+    scenes = generator._with_closing_scene(
+        plan.document,
+        plan,
+        [],
+        sample_video_plan(),
+    )
+
+    assert scenes == []
+
+
+def test_closing_helpers_fall_back_when_section_metadata_missing() -> None:
+    from app.services.storyboard_generator import _closing_page, _closing_paragraph
+
+    section = Section.model_construct(
+        id="sec-1",
+        title="Conclusion",
+        content="Wrap-up",
+        page_numbers=[],
+        paragraph_indices=[],
+    )
+
+    assert _closing_page(section) == 1
+    assert _closing_paragraph(section) == 1
+
+
 def test_cap_planned_output_enforces_safety_ceilings() -> None:
     from app.config import Settings
     from app.models.storyboard_generation import PlannedShot
@@ -304,3 +341,26 @@ def test_match_section_supports_partial_title_match() -> None:
     matched = _match_section(sections, "Results")
     assert matched is not None
     assert matched.title == "Results and Discussion"
+
+
+def test_find_closing_section_prefers_conclusion_like_titles() -> None:
+    sections = [
+        Section(id="sec-1", title="Introduction", content="Intro", page_numbers=[1]),
+        Section(id="sec-2", title="Results", content="Results", page_numbers=[5]),
+        Section(id="sec-3", title="7 Conclusion", content="Wrap-up", page_numbers=[9]),
+    ]
+
+    matched = _find_closing_section(sections)
+
+    assert matched.title == "7 Conclusion"
+
+
+def test_find_closing_section_falls_back_to_last_section() -> None:
+    sections = [
+        Section(id="sec-1", title="Introduction", content="Intro", page_numbers=[1]),
+        Section(id="sec-2", title="Results", content="Results", page_numbers=[5]),
+    ]
+
+    matched = _find_closing_section(sections)
+
+    assert matched.title == "Results"

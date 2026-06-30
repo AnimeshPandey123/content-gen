@@ -426,7 +426,8 @@ def test_mobile_crop_limits_oversized_regions() -> None:
         page,
     )
 
-    assert crop.height <= 792.0 * 0.85 + 0.01
+    assert crop.height <= 792.0 * 0.92 + 0.01
+    assert crop.y == 0.0
     assert crop.width == pytest.approx(612.0)
 
 

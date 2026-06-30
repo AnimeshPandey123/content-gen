@@ -15,6 +15,20 @@ class VoiceGeneratorError(Exception):
     """Raised when narration audio cannot be generated."""
 
 
+NARRATION_STYLE_PROMPT = (
+    "Read the following narration in a clear, energetic documentary voice. "
+    "Use the same steady pace and tone as a short-form science explainer:\n\n"
+)
+
+
+def format_narration_text(text: str) -> str:
+    """Wrap script text so TTS keeps a consistent delivery across scenes."""
+    cleaned = text.strip()
+    if not cleaned:
+        return cleaned
+    return f"{NARRATION_STYLE_PROMPT}{cleaned}"
+
+
 class VoiceSynthesizer:
     """Protocol-compatible synthesizer that writes narration WAV files."""
 
@@ -71,7 +85,7 @@ class GeminiVoiceSynthesizer(VoiceSynthesizer):
         try:
             response = self._client.models.generate_content(
                 model=self._model,
-                contents=text,
+                contents=format_narration_text(text),
                 config=types.GenerateContentConfig(
                     response_modalities=["AUDIO"],
                     speech_config=types.SpeechConfig(

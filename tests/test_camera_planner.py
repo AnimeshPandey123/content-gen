@@ -149,6 +149,7 @@ def test_resolve_shots_uses_llm_planned_shots() -> None:
         "Zoom the graph",
         "Highlight the result",
     ]
+    assert shots[1].crop.y == 0.0
 
 
 def test_resolve_shots_uses_visual_reference() -> None:
@@ -174,6 +175,35 @@ def test_resolve_shots_uses_visual_reference() -> None:
     assert len(shots) == 1
     assert shots[0].visual == "Figure 1"
     assert shots[0].page == 1
+
+
+def test_align_same_page_crops_skips_different_pages() -> None:
+    document = _sample_document()
+    planner = CameraPlanner()
+    shots = [
+        SceneShot(
+            order=0,
+            goal="Wide",
+            duration_seconds=2.0,
+            page=1,
+            paragraph=1,
+            framing="wide",
+            crop=BoundingBox(x=0, y=0, width=612, height=792),
+        ),
+        SceneShot(
+            order=1,
+            goal="Other page",
+            duration_seconds=2.0,
+            page=2,
+            paragraph=1,
+            framing="focus",
+            crop=BoundingBox(x=0, y=100, width=612, height=400),
+        ),
+    ]
+
+    aligned = planner._align_same_page_crops(document, shots)
+
+    assert aligned[1].crop.y == 100.0
 
 
 def test_rebalance_shot_durations_updates_scene_shots() -> None:

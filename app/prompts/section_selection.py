@@ -14,6 +14,8 @@ def build_section_selection_prompt(
         for index, candidate in enumerate(candidates, start=1)
     )
     return f"""You are selecting sections from a document for a short-form vertical video.
+The video should be informative, visually compelling, and shareable for a general tech-curious
+audience—not only domain experts.
 
 Document title: {document_title or "Untitled"}
 
@@ -22,6 +24,8 @@ Available sections:
 
 Choose the sections that best fit a compelling short video. Decide how many to include.
 Prioritize results, findings, methods with clear takeaways, and compelling claims.
+Favor sections with headline-worthy numbers, surprising ideas, or strong visual evidence
+(figures, tables, benchmarks) that would make someone stop scrolling.
 Avoid boilerplate such as references, acknowledgements, and author lists.
 
 Return JSON with this exact shape:

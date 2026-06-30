@@ -31,10 +31,15 @@ def test_build_storyboard_prompt_lets_llm_decide_structure() -> None:
     assert '"plan"' in prompt
     assert "target_video_duration_seconds" in prompt
     assert "title_page_duration_seconds" in prompt
+    assert "closing_scene_duration_seconds" in prompt
     assert "min_scene_duration_seconds" in prompt
     assert '"shots"' in prompt
     assert "Detected figures and tables" in prompt
+    assert "stronger storytellers" in prompt
+    assert "ready to use" in prompt
     assert "Decide how many content scenes" in prompt
+    assert "Creative direction" in prompt
+    assert "shareable" in prompt
     assert "Return at most" not in prompt
 
 

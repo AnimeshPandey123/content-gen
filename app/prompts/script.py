@@ -26,6 +26,8 @@ def build_script_prompt(
     target_duration = plan.target_video_duration_seconds if plan else total_duration
 
     return f"""You are writing a short-form vertical video script from a storyboard.
+The script should sound informative, energetic, and shareable—like a top science communicator
+on TikTok, Reels, or Shorts. Be accurate to the paper; never invent facts or exaggerate results.
 
 Document title: {document_title}
 
@@ -55,6 +57,21 @@ Rules:
 - overlay should be short, punchy, and readable on a phone screen.
 - duration should match the storyboard target duration for each scene.
 - Do not add extra scenes.
+- The opening scene is the automatic title-page intro: write a hook or teaser, not a dry title readout.
+- The final scene is the automatic closing scene: voice MUST conclude the video with a clear
+  takeaway, significance, or "so what"—do not end on raw results or unfinished technical detail.
+- The closing scene must use nearly the full max word count for its duration and match the same
+  energy, pace, and sentence style as the middle scenes—never a slow epilogue or one-liner.
+- Middle scenes carry the argument; only the final scene should wrap up.
+
+Tone and style:
+- Open with a hook: a question, bold claim, or surprising fact—never "In this paper" or "The authors".
+- Use active voice and short sentences; one clear idea per scene; must sound natural read aloud.
+- Explain jargon in plain language; prefer specific numbers and comparisons over vague praise.
+- overlay: 2-5 words, punchy and readable on a phone; tease the insight (e.g. "2x Faster Training")
+  not a dry label (e.g. "Model Architecture Section").
+- Avoid academic filler: "we propose", "it is shown that", "in this work", "the following".
+- Virality comes from a genuinely interesting insight told clearly—not hype, caps lock, or empty superlatives.
 """
 
 
@@ -64,11 +81,20 @@ def _format_scene(scene, *, words_per_minute: int) -> str:
         f"    - Shot {shot.order + 1}: {shot.goal} ({shot.duration_seconds}s, {shot.framing})"
         for shot in scene.shots
     )
+    role = _scene_role(scene)
     return (
-        f"- Scene {scene.order + 1}: {scene.goal}\n"
+        f"- Scene {scene.order + 1} ({role}): {scene.goal}\n"
         f"  Duration: {scene.duration_seconds}s\n"
         f"  Max voice words: {max_words}\n"
         f"  Camera shots:\n{shots}\n"
         f"  Source: {scene.source.section}, page {scene.source.page}, "
         f"paragraph {scene.source.paragraph}"
     )
+
+
+def _scene_role(scene) -> str:
+    if scene.id.endswith("-scene-intro"):
+        return "opening title page"
+    if scene.id.endswith("-scene-outro"):
+        return "closing takeaway"
+    return "content"

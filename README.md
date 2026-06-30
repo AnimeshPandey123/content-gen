@@ -61,7 +61,7 @@ Each scene gets a `timeline` with segments like:
 
 The full video `timeline` stacks scene segments and inserts transition markers at scene boundaries. Every shot stores `start_seconds` and `end_seconds` relative to its scene, and rendering reads per-shot durations from the timeline instead of inferring them ad hoc.
 
-A title-page scene is prepended automatically (full first page, ~4 seconds). Only content scenes require LLM-planned shots.
+A title-page scene is prepended automatically (full first page, ~4 seconds). A closing takeaway scene is appended automatically (~4 seconds). Only middle content scenes require LLM-planned shots.
 
 ## Output layout
 
@@ -125,7 +125,7 @@ Gemini decides how many sections to include, how many scenes and shots to plan, 
 | `MAX_SHOTS_PER_SCENE` | `8` | Safety ceiling on camera shots per scene |
 | `MAX_VIDEO_DURATION_SECONDS` | `120` | Hard ceiling when fitting final video duration |
 
-The storyboard LLM returns a `plan` object (`target_video_duration_seconds`, `title_page_duration_seconds`, `min_scene_duration_seconds`) stored in `storyboard.json`.
+The storyboard LLM returns a `plan` object (`target_video_duration_seconds`, `title_page_duration_seconds`, `closing_scene_duration_seconds`, `min_scene_duration_seconds`) stored in `storyboard.json`.
 
 ### Voice and narration
 

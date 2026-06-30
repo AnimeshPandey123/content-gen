@@ -23,5 +23,9 @@ test-cov:
 check-gemini:
 	$(BIN)/python scripts/check_gemini.py
 
+# Examples:
+#   make run
+#   make run PDF=pdf/attention.pdf
+#   make run PDF=pdf/attention.pdf PROJECT_ID=88adcb5b-536e-4c52-b52b-04d353bce1fe
 run:
 	$(BIN)/python -m app.main $(PDF) $(if $(PROJECT_ID),--project-id $(PROJECT_ID),)

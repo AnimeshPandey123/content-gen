@@ -27,7 +27,23 @@ def test_build_script_prompt_includes_storyboard_scenes() -> None:
         ),
         storyboard=Storyboard(
             document_id=document.id,
-            scenes=[sample_scene(goal="Introduce the finding")],
+            scenes=[
+                sample_scene(
+                    id=f"{document.id}-scene-intro",
+                    order=0,
+                    goal="Show the paper title page",
+                ),
+                sample_scene(
+                    id="scene-1",
+                    order=1,
+                    goal="Introduce the finding",
+                ),
+                sample_scene(
+                    id=f"{document.id}-scene-outro",
+                    order=2,
+                    goal="Conclude with the paper's main takeaway",
+                ),
+            ],
             plan=sample_video_plan(target_video_duration_seconds=30.0),
         ),
     )
@@ -35,7 +51,9 @@ def test_build_script_prompt_includes_storyboard_scenes() -> None:
     prompt = build_script_prompt(storyboard_result)
 
     assert "Introduce the finding" in prompt
-    assert "Target video duration: 30.0 seconds" in prompt
-    assert "Max voice words" in prompt
+    assert "opening title page" in prompt
+    assert "closing takeaway" in prompt
+    assert "Tone and style" in prompt
+    assert "shareable" in prompt
     assert '"voice"' in prompt
     assert '"overlay"' in prompt

@@ -132,7 +132,12 @@ class StoryboardGenerator:
             raise StoryboardGenerationError("No scenes matched the LLM storyboard output")
 
         fitted_scenes = self._fit_duration_budget(
-            self._with_title_page_scene(document, content_plan, scenes, plan),
+            self._with_closing_scene(
+                document,
+                content_plan,
+                self._with_title_page_scene(document, content_plan, scenes, plan),
+                plan,
+            ),
             plan,
         )
         video_timeline = self._timeline_builder.build_video_timeline(
@@ -200,6 +205,73 @@ class StoryboardGenerator:
             scene.model_copy(update={"order": index}) for index, scene in enumerate(scenes, start=1)
         ]
         return [intro, *shifted]
+
+    def _with_closing_scene(
+        self,
+        document: Document,
+        content_plan: ContentPlan,
+        scenes: list[Scene],
+        plan: VideoPlan,
+    ) -> list[Scene]:
+        """Append a closing scene so the video ends with a clear takeaway."""
+        if not document.pages or not content_plan.selected_sections or not scenes:
+            return scenes
+
+        section = _find_closing_section(content_plan.selected_sections)
+        page_number = _closing_page(section)
+        paragraph = _closing_paragraph(section)
+        outro_shot = self._camera_planner.shot_for_page(
+            document=document,
+            page_number=page_number,
+            paragraph=paragraph,
+            goal="Conclude with the paper's main takeaway",
+            duration_seconds=plan.closing_scene_duration_seconds,
+            framing="wide",
+        )
+        outro = Scene(
+            id=f"{document.id}-scene-outro",
+            section_id=section.id,
+            order=max(scene.order for scene in scenes) + 1,
+            goal="Conclude with the paper's main takeaway",
+            duration_seconds=plan.closing_scene_duration_seconds,
+            source=SceneSource(
+                section=section.title,
+                page=page_number,
+                paragraph=paragraph,
+            ),
+            shots=[outro_shot],
+            visual=SceneVisual(page=outro_shot.page, crop=outro_shot.crop),
+        )
+        return [*scenes, outro]
+
+
+_CLOSING_SECTION_KEYWORDS = (
+    "conclusion",
+    "discussion",
+    "summary",
+    "takeaway",
+    "future work",
+)
+
+
+def _find_closing_section(sections: list[Section]) -> Section:
+    for section in sections:
+        normalized = _normalize_title(section.title)
+        if any(keyword in normalized for keyword in _CLOSING_SECTION_KEYWORDS):
+            return section
+    return sections[-1]
+
+
+def _closing_page(section: Section) -> int:
+    if section.page_numbers:
+        return section.page_numbers[-1]
+    return 1
+
+
+def _closing_paragraph(section: Section) -> int:
+    if section.paragraph_indices:
+        return section.paragraph_indices[-1]
+    return 1
 
 
 def _match_section(sections: list[Section], source_title: str) -> Section | None:

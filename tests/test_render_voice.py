@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from app.config import Settings
 from app.render.project import bootstrap_render_project
-from app.render.voice import VoiceGenerator, VoiceSynthesizer, WaveVoiceSynthesizer
+from app.render.voice import VoiceGenerator, VoiceSynthesizer, WaveVoiceSynthesizer, format_narration_text
 from app.services.stages.voice_generation import VoiceGenerationStage
 
 from tests.test_render_project import _script_plan
@@ -52,3 +52,14 @@ def test_wave_voice_synthesizer_writes_requested_duration(tmp_path: Path) -> Non
 def test_voice_synthesizer_base_raises_not_implemented(tmp_path: Path) -> None:
     with pytest.raises(NotImplementedError):
         VoiceSynthesizer().synthesize("hello", tmp_path / "voice.wav", duration_seconds=1.0)
+
+
+def test_format_narration_text_adds_consistent_style_prompt() -> None:
+    formatted = format_narration_text("This design paved the way for modern AI.")
+
+    assert "steady pace" in formatted
+    assert formatted.endswith("This design paved the way for modern AI.")
+
+
+def test_format_narration_text_returns_empty_for_blank_input() -> None:
+    assert format_narration_text("   ") == ""

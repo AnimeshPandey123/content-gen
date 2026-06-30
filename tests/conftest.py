@@ -83,6 +83,7 @@ def sample_video_plan(**overrides):
     values = {
         "target_video_duration_seconds": 30.0,
         "title_page_duration_seconds": 4.0,
+        "closing_scene_duration_seconds": 4.0,
         "min_scene_duration_seconds": 3.0,
     }
     values.update(overrides)
