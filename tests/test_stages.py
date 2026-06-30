@@ -98,10 +98,22 @@ def test_semantic_parsing_output_type(tmp_path, sample_pdf) -> None:
 
 
 def test_content_planning_output_type() -> None:
-    stage = ContentPlanningStage()
+    from app.models.section_selection import RankedSection, SectionSelectionResponse
+    from app.services.section_selector import SectionSelector
+
+    class _FakeClient:
+        def generate_model(self, prompt, response_model):
+            return SectionSelectionResponse(
+                sections=[RankedSection(section="Page 1", importance=0.9)],
+            )
+
+    stage = ContentPlanningStage(
+        selector=SectionSelector(gemini_client=_FakeClient()),
+    )
     result = stage.run(_sample_document())
     assert isinstance(result, ContentPlan)
-    assert len(result.selected_sections) >= 1
+    assert len(result.selected_sections) == 1
+    assert result.selected_sections[0].importance_score == 0.9
 
 
 def test_storyboard_generation_output_type() -> None:

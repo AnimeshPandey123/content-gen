@@ -270,7 +270,11 @@ def test_plan_for_storyboard_defaults_to_first_paragraph() -> None:
     assert regions[0].paragraph_index == 1
 
 
-def test_screenshot_planning_stage_with_real_pdf(tmp_path: Path, semantic_pdf: Path) -> None:
+def test_screenshot_planning_stage_with_real_pdf(
+    tmp_path: Path,
+    semantic_pdf: Path,
+    monkeypatch,
+) -> None:
     from app.config import Settings
     from app.models.pipeline import PipelineInput
     from app.services.stages.content_planning import ContentPlanningStage
@@ -279,6 +283,9 @@ def test_screenshot_planning_stage_with_real_pdf(tmp_path: Path, semantic_pdf: P
     from app.services.stages.semantic_parsing import SemanticParsingStage
     from app.services.stages.storyboard_generation import StoryboardGenerationStage
 
+    from tests.conftest import mock_section_selection
+
+    mock_section_selection(monkeypatch)
     settings = Settings(output_dir=tmp_path / "output", screenshot_padding=0)
     document = DocumentExtractionStage(settings=settings).run(
         PipelineInput(pdf_path=str(semantic_pdf), project_id="shot-doc"),

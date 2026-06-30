@@ -58,6 +58,29 @@ def semantic_pdf(tmp_path: Path) -> Path:
     return write_semantic_pdf(tmp_path / "semantic.pdf")
 
 
+def mock_section_selection(monkeypatch) -> None:
+    """Bypass Gemini during integration tests."""
+    from app.models.section import Section
+    from app.services.screenshot_region_planner import ScreenshotRegionPlanner
+    from app.services.section_selector import SectionSelector
+
+    def _fake_select(self, document):
+        refs = list(ScreenshotRegionPlanner().iter_paragraphs(document))
+        paragraph_indices = [refs[0].index] if refs else []
+        return [
+            Section(
+                id=f"{document.id}-section-1",
+                title="Highlight",
+                content=document.raw_text[:500] or document.pages[0].text,
+                page_numbers=[document.pages[0].page_number],
+                paragraph_indices=paragraph_indices,
+                importance_score=0.9,
+            ),
+        ]
+
+    monkeypatch.setattr(SectionSelector, "select_sections", _fake_select)
+
+
 @pytest.fixture(autouse=True)
 def _reset_settings() -> None:
     reset_settings()

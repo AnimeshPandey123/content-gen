@@ -16,7 +16,20 @@ class Settings(BaseSettings):
     )
 
     # LLM
-    model_name: str = Field(default="gpt-4o", description="LLM model for planning stages")
+    gemini_api_key: str | None = Field(
+        default=None,
+        description="Google Gemini API key for section selection",
+    )
+    gemini_model: str = Field(
+        default="gemini-2.0-flash",
+        description="Gemini model used for section selection",
+    )
+    section_selection_limit: int = Field(
+        default=5,
+        ge=1,
+        le=5,
+        description="Maximum number of sections to select for the video",
+    )
 
     # Paths
     output_dir: Path = Field(default=Path("output"), description="Directory for generated assets")
