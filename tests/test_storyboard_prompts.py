@@ -23,10 +23,16 @@ def test_build_storyboard_prompt_includes_sections_and_paragraphs() -> None:
         ],
     )
 
-    prompt = build_storyboard_prompt(content_plan, max_scenes=3)
+    prompt = build_storyboard_prompt(
+        content_plan,
+        max_scenes=3,
+        max_video_duration_seconds=30.0,
+        title_page_duration_seconds=4.0,
+    )
 
     assert "Results" in prompt
     assert "Paragraph 1" in prompt
-    assert "up to 3 scenes" in prompt
+    assert "Return at most 3 scenes" in prompt
+    assert "30 seconds" in prompt
     assert '"goal"' in prompt
     assert '"source"' in prompt

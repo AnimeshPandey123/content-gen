@@ -10,7 +10,9 @@ def test_settings_defaults() -> None:
     settings = Settings(_env_file=None)
     assert settings.gemini_model == "gemini-2.0-flash"
     assert settings.section_selection_limit == 5
-    assert settings.storyboard_max_scenes == 8
+    assert settings.storyboard_max_scenes == 4
+    assert settings.max_video_duration_seconds == 30.0
+    assert settings.min_scene_duration_seconds == 3.0
     assert settings.screenshot_dpi == 300
     assert settings.camera_motion == "static"
     assert settings.scene_transition == "crossfade"
@@ -26,7 +28,7 @@ def test_settings_defaults() -> None:
     assert settings.screenshot_padding == 24.0
     assert settings.screenshot_expand_factor == 2.0
     assert settings.screenshot_mobile_crop is True
-    assert settings.title_page_duration_seconds == 5.0
+    assert settings.title_page_duration_seconds == 4.0
 
 
 def test_settings_from_environment(monkeypatch, tmp_path) -> None:

@@ -31,10 +31,22 @@ class Settings(BaseSettings):
         description="Maximum number of sections to select for the video",
     )
     storyboard_max_scenes: int = Field(
-        default=8,
+        default=4,
         ge=1,
         le=20,
-        description="Maximum number of scenes in the generated storyboard",
+        description="Maximum number of content scenes in the generated storyboard",
+    )
+    max_video_duration_seconds: float = Field(
+        default=30.0,
+        ge=5.0,
+        le=120.0,
+        description="Maximum final video duration in seconds",
+    )
+    min_scene_duration_seconds: float = Field(
+        default=3.0,
+        ge=1.0,
+        le=15.0,
+        description="Minimum duration allowed for any scene",
     )
 
     # Paths
@@ -55,7 +67,7 @@ class Settings(BaseSettings):
         description="Fit screenshot crops to the vertical video aspect ratio",
     )
     title_page_duration_seconds: float = Field(
-        default=5.0,
+        default=4.0,
         ge=1.0,
         le=15.0,
         description="Duration of the opening title-page scene",

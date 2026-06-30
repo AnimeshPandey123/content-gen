@@ -139,6 +139,48 @@ def test_build_client_uses_settings_api_key(monkeypatch) -> None:
     assert created == ["secret-key"]
 
 
+def test_generate_script_uses_storyboard_duration_not_llm_duration() -> None:
+    from tests.conftest import sample_scene
+
+    document = _sample_document()
+    storyboard_result = StoryboardResult(
+        content_plan=ContentPlan(
+            document=document,
+            selected_sections=[
+                Section(
+                    id="sec-1",
+                    title="Page 1",
+                    content="Sample",
+                    page_numbers=[1],
+                    paragraph_indices=[1],
+                    importance_score=0.9,
+                ),
+            ],
+        ),
+        storyboard=Storyboard(
+            document_id=document.id,
+            scenes=[sample_scene(id="doc-test-scene-1", duration_seconds=6.5)],
+        ),
+    )
+    fake_client = _FakeGeminiClient(
+        ScriptGenerationResponse(
+            scenes=[
+                GeneratedScriptScene(
+                    scene=1,
+                    voice="Voice line",
+                    overlay="Overlay text",
+                    duration=30.0,
+                ),
+            ],
+        ),
+    )
+    generator = ScriptGenerator(gemini_client=fake_client)
+
+    script = generator.generate_script(storyboard_result)
+
+    assert script.scenes[0].duration == 6.5
+
+
 def test_generate_script_raises_when_scene_numbers_do_not_match() -> None:
     fake_client = _FakeGeminiClient(
         ScriptGenerationResponse(

@@ -34,5 +34,7 @@ def test_build_script_prompt_includes_storyboard_scenes() -> None:
     prompt = build_script_prompt(storyboard_result)
 
     assert "Introduce the finding" in prompt
+    assert "30 seconds" in prompt
+    assert "Max voice words" in prompt
     assert '"voice"' in prompt
     assert '"overlay"' in prompt

@@ -71,14 +71,16 @@ Copy `.env.example` to `.env` and adjust as needed:
 | `TTS_VOICE` | `Kore` | Prebuilt Gemini voice name |
 | `TTS_SAMPLE_RATE` | `24000` | Output WAV sample rate |
 | `SECTION_SELECTION_LIMIT` | `5` | Max sections to include |
-| `STORYBOARD_MAX_SCENES` | `8` | Max scenes in the storyboard |
+| `STORYBOARD_MAX_SCENES` | `4` | Max content scenes (title page added automatically) |
+| `MAX_VIDEO_DURATION_SECONDS` | `30` | Hard cap on final video length |
+| `MIN_SCENE_DURATION_SECONDS` | `3` | Shortest allowed scene duration |
 | `OUTPUT_DIR` | `output` | Root directory for rendered assets |
 | `VIDEO_WIDTH` / `VIDEO_HEIGHT` | `1080` / `1920` | Vertical video dimensions |
 | `SCREENSHOT_DPI` | `300` | DPI for PDF page crops |
 | `SCREENSHOT_PADDING` | `24` | Extra margin around screenshot regions (PDF points) |
 | `SCREENSHOT_EXPAND_FACTOR` | `2.0` | Widen crops for more page context |
 | `SCREENSHOT_MOBILE_CROP` | `true` | Fit crops to 9:16 vertical video |
-| `TITLE_PAGE_DURATION_SECONDS` | `5` | Duration of the opening title-page scene |
+| `TITLE_PAGE_DURATION_SECONDS` | `4` | Duration of the opening title-page scene |
 | `CAMERA_MOTION` | `static` | Per-scene image motion (`static` keeps screenshots still) |
 | `SCENE_TRANSITION` | `crossfade` | Between-scene transition: `crossfade` or `cut` |
 | `SCENE_TRANSITION_DURATION` | `0.5` | Crossfade length in seconds |

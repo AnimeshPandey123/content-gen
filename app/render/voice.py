@@ -176,5 +176,4 @@ class VoiceGenerator:
         return max(minutes * 60.0 / self._settings.narration_speed, 1.0)
 
     def _scene_duration(self, script_scene: ScriptScene) -> float:
-        estimated = self.estimate_duration(script_scene.voice)
-        return max(script_scene.duration, estimated)
+        return script_scene.duration

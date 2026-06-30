@@ -191,6 +191,34 @@ def test_generate_storyboard_skips_invalid_paragraph_index() -> None:
         generator.generate_storyboard(_content_plan())
 
 
+def test_generate_storyboard_fits_duration_budget() -> None:
+    from app.config import Settings
+    from app.services.duration_budget import playback_duration
+
+    fake_client = _FakeGeminiClient(
+        StoryboardGenerationResponse(
+            scenes=[
+                PlannedScene(
+                    goal=f"Scene {index}",
+                    duration_seconds=10.0,
+                    source=PlannedSceneSource(section="Page 1", page=1, paragraph=1),
+                )
+                for index in range(1, 5)
+            ],
+        ),
+    )
+    settings = Settings(max_video_duration_seconds=30.0, title_page_duration_seconds=4.0)
+    generator = StoryboardGenerator(gemini_client=fake_client, settings=settings)
+
+    storyboard = generator.generate_storyboard(_content_plan())
+
+    total = playback_duration(
+        [scene.duration_seconds for scene in storyboard.scenes],
+        transition_duration_seconds=settings.scene_transition_duration,
+    )
+    assert total <= 30.0
+
+
 def test_match_section_supports_partial_title_match() -> None:
     sections = [
         Section(

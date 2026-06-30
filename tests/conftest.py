@@ -119,7 +119,7 @@ def mock_storyboard_generation(monkeypatch) -> None:
                     section_id=section.id,
                     order=0,
                     goal="Show the paper title page",
-                    duration_seconds=5.0,
+                    duration_seconds=4.0,
                     source=SceneSource(
                         section=section.title,
                         page=1,

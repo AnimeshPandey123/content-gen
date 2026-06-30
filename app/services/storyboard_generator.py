@@ -11,6 +11,7 @@ from app.models.section import Section
 from app.models.storyboard import Storyboard
 from app.models.storyboard_generation import PlannedScene, StoryboardGenerationResponse
 from app.prompts.storyboard import build_storyboard_prompt
+from app.services.duration_budget import fit_scene_durations, recommended_content_scene_count
 from app.services.screenshot_region_planner import ScreenshotRegionError, ScreenshotRegionPlanner
 
 
@@ -42,10 +43,21 @@ class StoryboardGenerator:
 
     def _plan_scenes(self, content_plan: ContentPlan) -> list[PlannedScene]:
         max_scenes = min(
-            self._settings.storyboard_max_scenes,
+            recommended_content_scene_count(
+                max_video_duration_seconds=self._settings.max_video_duration_seconds,
+                title_page_duration_seconds=self._settings.title_page_duration_seconds,
+                transition_duration_seconds=self._settings.scene_transition_duration,
+                min_scene_duration_seconds=self._settings.min_scene_duration_seconds,
+                configured_max=self._settings.storyboard_max_scenes,
+            ),
             len(content_plan.selected_sections) * 3,
         )
-        prompt = build_storyboard_prompt(content_plan, max_scenes=max_scenes)
+        prompt = build_storyboard_prompt(
+            content_plan,
+            max_scenes=max_scenes,
+            max_video_duration_seconds=self._settings.max_video_duration_seconds,
+            title_page_duration_seconds=self._settings.title_page_duration_seconds,
+        )
         client = self._gemini_client or self._build_client()
 
         try:
@@ -105,7 +117,20 @@ class StoryboardGenerator:
 
         return Storyboard(
             document_id=document.id,
-            scenes=self._with_title_page_scene(document, content_plan, scenes),
+            scenes=self._fit_duration_budget(
+                self._with_title_page_scene(document, content_plan, scenes),
+            ),
+        )
+
+    def _fit_duration_budget(self, scenes: list[Scene]) -> list[Scene]:
+        return fit_scene_durations(
+            scenes,
+            max_video_duration_seconds=self._settings.max_video_duration_seconds,
+            transition_duration_seconds=self._settings.scene_transition_duration,
+            min_scene_duration_seconds=self._settings.min_scene_duration_seconds,
+            update_duration=lambda scene, duration: scene.model_copy(
+                update={"duration_seconds": round(duration, 3)},
+            ),
         )
 
     def _with_title_page_scene(
