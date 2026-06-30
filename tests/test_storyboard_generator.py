@@ -3,7 +3,11 @@
 import pytest
 from app.models.pipeline import ContentPlan
 from app.models.section import Section
-from app.models.storyboard_generation import PlannedScene, StoryboardGenerationResponse
+from app.models.storyboard_generation import (
+    PlannedScene,
+    PlannedSceneSource,
+    StoryboardGenerationResponse,
+)
 from app.services.storyboard_generator import (
     StoryboardGenerationError,
     StoryboardGenerator,
@@ -46,11 +50,7 @@ def test_plan_scenes_returns_llm_output() -> None:
                 PlannedScene(
                     goal="Introduce the sample",
                     duration_seconds=5.0,
-                    source="Page 1",
-                    screenshot="Opening paragraph",
-                    paragraph_index=1,
-                    narration="Here is a quick look at the sample.",
-                    caption="Sample",
+                    source=PlannedSceneSource(section="Page 1", page=1, paragraph=1),
                 ),
             ],
         ),
@@ -70,11 +70,7 @@ def test_generate_storyboard_builds_scene_models() -> None:
                 PlannedScene(
                     goal="Introduce the sample",
                     duration_seconds=5.0,
-                    source="Page 1",
-                    screenshot="Opening paragraph",
-                    paragraph_index=1,
-                    narration="Here is a quick look at the sample.",
-                    caption="Sample",
+                    source=PlannedSceneSource(section="Page 1", page=1, paragraph=1),
                 ),
             ],
         ),
@@ -86,9 +82,8 @@ def test_generate_storyboard_builds_scene_models() -> None:
     assert len(storyboard.scenes) == 1
     scene = storyboard.scenes[0]
     assert scene.goal == "Introduce the sample"
-    assert scene.narration == "Here is a quick look at the sample."
-    assert scene.caption == "Sample"
-    assert scene.paragraph_index == 1
+    assert scene.source.paragraph == 1
+    assert scene.visual.crop.width > 0
 
 
 def test_generate_storyboard_requires_api_key_when_client_not_injected() -> None:
@@ -128,11 +123,7 @@ def test_build_client_uses_settings_api_key(monkeypatch) -> None:
                     PlannedScene(
                         goal="Hook",
                         duration_seconds=5.0,
-                        source="Page 1",
-                        screenshot="Paragraph 1",
-                        paragraph_index=1,
-                        narration="Narration",
-                        caption="Caption",
+                        source=PlannedSceneSource(section="Page 1", page=1, paragraph=1),
                     ),
                 ],
             )
@@ -153,11 +144,7 @@ def test_generate_storyboard_raises_when_llm_returns_unknown_sections() -> None:
                 PlannedScene(
                     goal="Hook",
                     duration_seconds=5.0,
-                    source="Conclusion",
-                    screenshot="Paragraph 1",
-                    paragraph_index=1,
-                    narration="Narration",
-                    caption="Caption",
+                    source=PlannedSceneSource(section="Conclusion", page=1, paragraph=1),
                 ),
             ],
         ),
@@ -175,11 +162,7 @@ def test_generate_storyboard_skips_invalid_paragraph_index() -> None:
                 PlannedScene(
                     goal="Hook",
                     duration_seconds=5.0,
-                    source="Page 1",
-                    screenshot="Missing paragraph",
-                    paragraph_index=99,
-                    narration="Narration",
-                    caption="Caption",
+                    source=PlannedSceneSource(section="Page 1", page=1, paragraph=99),
                 ),
             ],
         ),

@@ -18,16 +18,15 @@ from app.models.metadata import DocumentMetadata
 from app.models.narration import Narration
 from app.models.page import Page
 from app.models.pipeline import (
-    CaptionPlan,
     ContentPlan,
-    NarrationPlan,
     PipelineInput,
     RenderResult,
-    ScreenshotPlan,
+    ScriptPlan,
     StoryboardResult,
 )
-from app.models.scene import Scene
+from app.models.scene import Scene, SceneSource, SceneVisual
 from app.models.screenshot import ScreenshotRegion
+from app.models.script import Script, ScriptScene
 from app.models.section import Section
 from app.models.storyboard import Storyboard
 from app.models.video_project import VideoProject
@@ -35,22 +34,24 @@ from app.models.video_project import VideoProject
 __all__ = [
     "BoundingBox",
     "Caption",
-    "CaptionPlan",
     "ContentPlan",
     "Document",
     "DocumentMetadata",
     "Figure",
     "Heading",
     "Narration",
-    "NarrationPlan",
     "Page",
     "Paragraph",
     "PipelineInput",
     "RenderResult",
     "Scene",
+    "SceneSource",
+    "SceneVisual",
+    "Script",
+    "ScriptPlan",
+    "ScriptScene",
     "SemanticBlock",
     "SemanticCaption",
-    "ScreenshotPlan",
     "ScreenshotRegion",
     "Section",
     "Storyboard",

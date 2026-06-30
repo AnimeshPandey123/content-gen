@@ -29,4 +29,4 @@ def test_build_storyboard_prompt_includes_sections_and_paragraphs() -> None:
     assert "Paragraph 1" in prompt
     assert "up to 3 scenes" in prompt
     assert '"goal"' in prompt
-    assert '"caption"' in prompt
+    assert '"source"' in prompt

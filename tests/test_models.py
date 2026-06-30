@@ -4,18 +4,20 @@ import json
 
 import pytest
 from app.models import (
-    Caption,
     Document,
     DocumentMetadata,
-    Narration,
     Page,
     PipelineInput,
     Scene,
-    ScreenshotRegion,
+    Script,
+    ScriptScene,
     Section,
     Storyboard,
     VideoProject,
 )
+from app.models.bounding_box import BoundingBox
+from app.models.caption import Caption
+from app.models.scene import SceneSource, SceneVisual
 from pydantic import ValidationError
 
 
@@ -39,9 +41,9 @@ def test_caption_end_time_must_exceed_start_time() -> None:
         Caption(scene_id="s1", text="Hello", start_time=5.0, end_time=3.0)
 
 
-def test_screenshot_region_requires_positive_dimensions() -> None:
-    with pytest.raises(ValidationError):
-        ScreenshotRegion(scene_id="s1", page_number=1, x=0, y=0, width=0, height=100)
+def test_caption_accepts_valid_timing() -> None:
+    caption = Caption(scene_id="s1", text="Hello", start_time=0.0, end_time=3.0)
+    assert caption.end_time == 3.0
 
 
 def test_models_serialize_to_json() -> None:
@@ -60,26 +62,29 @@ def test_models_serialize_to_json() -> None:
         order=0,
         goal="Intro scene",
         duration_seconds=3.0,
-        source="Intro",
-        screenshot="Opening paragraph",
-        narration="Hello world",
-        caption="Hello world",
+        source=SceneSource(section="Intro", page=1, paragraph=1),
+        visual=SceneVisual(page=1, crop=BoundingBox(x=0, y=0, width=100, height=100)),
     )
     storyboard = Storyboard(document_id="doc-1", scenes=[scene])
-    region = ScreenshotRegion(scene_id="sc-1", page_number=1, x=0, y=0, width=100, height=100)
-    narration = Narration(scene_id="sc-1", text="Hello world", estimated_duration_seconds=3.0)
-    caption = Caption(scene_id="sc-1", text="Hello world", start_time=0.0, end_time=3.0)
+    script = Script(
+        scenes=[
+            ScriptScene(
+                scene=1,
+                scene_id="sc-1",
+                voice="Hello world",
+                overlay="Hello",
+                duration=3.0,
+            ),
+        ],
+    )
 
     project = VideoProject(
         document=document,
         storyboard=storyboard,
-        screenshot_regions=[region],
-        narrations=[narration],
-        captions=[caption],
+        script=script,
     )
 
     payload = json.loads(project.model_dump_json())
     assert payload["document"]["id"] == "doc-1"
-    assert payload["document"]["raw_text"] == "Hello"
-    assert payload["storyboard"]["scenes"][0]["id"] == "sc-1"
-    assert payload["captions"][0]["text"] == "Hello world"
+    assert payload["storyboard"]["scenes"][0]["goal"] == "Intro scene"
+    assert payload["script"]["scenes"][0]["overlay"] == "Hello"

@@ -5,12 +5,12 @@ import re
 from app.agents.gemini_client import GeminiClient, GeminiClientError
 from app.config import Settings, get_settings
 from app.models.pipeline import ContentPlan
-from app.models.scene import Scene
+from app.models.scene import Scene, SceneSource, SceneVisual
 from app.models.section import Section
 from app.models.storyboard import Storyboard
 from app.models.storyboard_generation import PlannedScene, StoryboardGenerationResponse
 from app.prompts.storyboard import build_storyboard_prompt
-from app.services.screenshot_region_planner import ScreenshotRegionPlanner
+from app.services.screenshot_region_planner import ScreenshotRegionError, ScreenshotRegionPlanner
 
 
 class StoryboardGenerationError(Exception):
@@ -18,16 +18,18 @@ class StoryboardGenerationError(Exception):
 
 
 class StoryboardGenerator:
-    """Plan a full storyboard with Gemini before narration or captions."""
+    """Plan storyboard structure with Gemini before script generation."""
 
     def __init__(
         self,
         *,
         settings: Settings | None = None,
         gemini_client: GeminiClient | None = None,
+        region_planner: ScreenshotRegionPlanner | None = None,
     ) -> None:
         self._settings = settings or get_settings()
         self._gemini_client = gemini_client
+        self._region_planner = region_planner or ScreenshotRegionPlanner(settings=self._settings)
 
     def generate_storyboard(self, content_plan: ContentPlan) -> Storyboard:
         planned_scenes = self._plan_scenes(content_plan)
@@ -66,14 +68,19 @@ class StoryboardGenerator:
         planned_scenes: list[PlannedScene],
     ) -> Storyboard:
         document = content_plan.document
-        paragraph_count = sum(1 for _ in ScreenshotRegionPlanner().iter_paragraphs(document))
         scenes: list[Scene] = []
 
         for index, planned in enumerate(planned_scenes, start=1):
-            section = _match_section(content_plan.selected_sections, planned.source)
+            section = _match_section(content_plan.selected_sections, planned.source.section)
             if section is None:
                 continue
-            if planned.paragraph_index > paragraph_count:
+
+            try:
+                page_number, crop = self._region_planner.crop_for_paragraph(
+                    document,
+                    planned.source.paragraph,
+                )
+            except ScreenshotRegionError:
                 continue
 
             scenes.append(
@@ -83,11 +90,12 @@ class StoryboardGenerator:
                     order=index - 1,
                     goal=planned.goal,
                     duration_seconds=planned.duration_seconds,
-                    source=section.title,
-                    screenshot=planned.screenshot,
-                    narration=planned.narration,
-                    caption=planned.caption,
-                    paragraph_index=planned.paragraph_index,
+                    source=SceneSource(
+                        section=section.title,
+                        page=planned.source.page,
+                        paragraph=planned.source.paragraph,
+                    ),
+                    visual=SceneVisual(page=page_number, crop=crop),
                 ),
             )
 

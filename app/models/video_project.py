@@ -2,10 +2,8 @@
 
 from pydantic import BaseModel
 
-from app.models.caption import Caption
 from app.models.document import Document
-from app.models.narration import Narration
-from app.models.screenshot import ScreenshotRegion
+from app.models.script import Script
 from app.models.storyboard import Storyboard
 
 
@@ -14,7 +12,5 @@ class VideoProject(BaseModel):
 
     document: Document
     storyboard: Storyboard
-    screenshot_regions: list[ScreenshotRegion]
-    narrations: list[Narration]
-    captions: list[Caption]
+    script: Script
     output_path: str | None = None

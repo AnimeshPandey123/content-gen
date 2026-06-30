@@ -5,6 +5,9 @@ from pathlib import Path
 import fitz
 import pytest
 from app.config import reset_settings
+from app.models.bounding_box import BoundingBox
+from app.models.scene import Scene, SceneSource, SceneVisual
+from app.services.screenshot_region_planner import ScreenshotRegionPlanner
 
 
 def write_sample_pdf(
@@ -44,6 +47,20 @@ def write_semantic_pdf(path: Path) -> Path:
     return path
 
 
+def sample_scene(**overrides) -> Scene:
+    values = {
+        "id": "scene-1",
+        "section_id": "sec-1",
+        "order": 0,
+        "goal": "Scene",
+        "duration_seconds": 4.0,
+        "source": SceneSource(section="Highlight", page=1, paragraph=1),
+        "visual": SceneVisual(page=1, crop=BoundingBox(x=72.0, y=72.0, width=400.0, height=18.0)),
+    }
+    values.update(overrides)
+    return Scene(**values)
+
+
 @pytest.fixture
 def sample_pdf(tmp_path: Path) -> Path:
     return write_sample_pdf(
@@ -61,7 +78,6 @@ def semantic_pdf(tmp_path: Path) -> Path:
 def mock_section_selection(monkeypatch) -> None:
     """Bypass Gemini during integration tests."""
     from app.models.section import Section
-    from app.services.screenshot_region_planner import ScreenshotRegionPlanner
     from app.services.section_selector import SectionSelector
 
     def _fake_select(self, document):
@@ -83,13 +99,16 @@ def mock_section_selection(monkeypatch) -> None:
 
 def mock_storyboard_generation(monkeypatch) -> None:
     """Bypass Gemini during integration tests."""
-    from app.models.scene import Scene
     from app.models.storyboard import Storyboard
     from app.services.storyboard_generator import StoryboardGenerator
 
     def _fake_generate(self, content_plan):
         section = content_plan.selected_sections[0]
         paragraph_index = section.paragraph_indices[0] if section.paragraph_indices else 1
+        page_number, crop = ScreenshotRegionPlanner().crop_for_paragraph(
+            content_plan.document,
+            paragraph_index,
+        )
         return Storyboard(
             document_id=content_plan.document.id,
             scenes=[
@@ -97,18 +116,41 @@ def mock_storyboard_generation(monkeypatch) -> None:
                     id=f"{content_plan.document.id}-scene-1",
                     section_id=section.id,
                     order=0,
-                    goal=f"Visual summary of {section.title}",
-                    duration_seconds=5.0,
-                    source=section.title,
-                    screenshot=f"Paragraph {paragraph_index}",
-                    narration=f"Here is a quick look at {section.title}.",
-                    caption=section.title,
-                    paragraph_index=paragraph_index,
+                    goal=f"Introduce {section.title}",
+                    duration_seconds=8.0,
+                    source=SceneSource(
+                        section=section.title,
+                        page=page_number,
+                        paragraph=paragraph_index,
+                    ),
+                    visual=SceneVisual(page=page_number, crop=crop),
                 ),
             ],
         )
 
     monkeypatch.setattr(StoryboardGenerator, "generate_storyboard", _fake_generate)
+
+
+def mock_script_generation(monkeypatch) -> None:
+    """Bypass Gemini during integration tests."""
+    from app.models.script import Script, ScriptScene
+    from app.services.script_generator import ScriptGenerator
+
+    def _fake_generate(self, storyboard_result):
+        return Script(
+            scenes=[
+                ScriptScene(
+                    scene=scene.order + 1,
+                    scene_id=scene.id,
+                    voice=f"Voice for scene {scene.order + 1}",
+                    overlay=scene.goal,
+                    duration=scene.duration_seconds,
+                )
+                for scene in storyboard_result.storyboard.scenes
+            ],
+        )
+
+    monkeypatch.setattr(ScriptGenerator, "generate_script", _fake_generate)
 
 
 @pytest.fixture(autouse=True)

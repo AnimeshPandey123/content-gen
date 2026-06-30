@@ -8,7 +8,6 @@ from app.models.blocks import Paragraph
 from app.models.bounding_box import BoundingBox
 from app.models.document import Document
 from app.models.page import Page
-from app.models.pipeline import StoryboardResult
 from app.models.screenshot import ScreenshotRegion
 
 
@@ -102,42 +101,27 @@ class ScreenshotRegionPlanner:
             block_id=ref.block.id,
         )
 
-    def plan_for_storyboard(self, storyboard_result: StoryboardResult) -> list[ScreenshotRegion]:
-        """Plan one screenshot region per storyboard scene."""
-        document = storyboard_result.content_plan.document
-        regions: list[ScreenshotRegion] = []
-
-        for scene in storyboard_result.storyboard.scenes:
-            paragraph_index = scene.paragraph_index
-            if paragraph_index is None:
-                paragraph_index = self._paragraph_index_for_section(
-                    storyboard_result,
-                    scene.section_id,
-                )
-            if paragraph_index is None:
-                paragraph_index = 1
-
-            regions.append(
-                self.region_for_paragraph(
-                    document,
-                    paragraph_index,
-                    scene_id=scene.id,
-                ),
-            )
-
-        return regions
-
-    def _paragraph_index_for_section(
+    def crop_for_paragraph(
         self,
-        storyboard_result: StoryboardResult,
-        section_id: str,
-    ) -> int | None:
-        for section in storyboard_result.content_plan.selected_sections:
-            if section.id != section_id:
-                continue
-            if section.paragraph_indices:
-                return section.paragraph_indices[0]
-        return None
+        document: Document,
+        paragraph_index: int,
+    ) -> tuple[int, BoundingBox]:
+        """Return page number and padded crop for a paragraph."""
+        ref = self.get_paragraph(document, paragraph_index)
+        bbox = ref.block.bbox
+        if bbox is None:
+            raise ScreenshotRegionError(
+                f"Paragraph {ref.index} has no bounding box for screenshot planning",
+            )
+        return ref.page_number, self._apply_padding(bbox, ref.page)
+
+    def region_for_scene(self, document: Document, scene) -> ScreenshotRegion:
+        """Return screenshot region derived from a storyboard scene."""
+        return self.region_for_paragraph(
+            document,
+            scene.source.paragraph,
+            scene_id=scene.id,
+        )
 
     def _apply_padding(self, bbox: BoundingBox, page: Page) -> BoundingBox:
         padding = self._settings.screenshot_padding

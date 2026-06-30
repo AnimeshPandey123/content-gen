@@ -1,21 +1,21 @@
 """Unit tests for storyboard generation models."""
 
 import pytest
-from app.models.storyboard_generation import PlannedScene, StoryboardGenerationResponse
+from app.models.storyboard_generation import (
+    PlannedScene,
+    PlannedSceneSource,
+    StoryboardGenerationResponse,
+)
 from pydantic import ValidationError
 
 
-def test_planned_scene_requires_all_fields() -> None:
+def test_planned_scene_requires_source() -> None:
     scene = PlannedScene(
-        goal="Hook the viewer",
-        duration_seconds=6.0,
-        source="Results",
-        screenshot="Paragraph with the main finding",
-        paragraph_index=2,
-        narration="We achieved ninety-five percent accuracy.",
-        caption="95% accuracy",
+        goal="Introduce the paper",
+        duration_seconds=8.0,
+        source=PlannedSceneSource(section="Introduction", page=1, paragraph=1),
     )
-    assert scene.goal == "Hook the viewer"
+    assert scene.source.paragraph == 1
 
 
 def test_planned_scene_duration_must_be_positive() -> None:
@@ -23,11 +23,7 @@ def test_planned_scene_duration_must_be_positive() -> None:
         PlannedScene(
             goal="Hook",
             duration_seconds=0,
-            source="Results",
-            screenshot="Paragraph 1",
-            paragraph_index=1,
-            narration="Narration",
-            caption="Caption",
+            source=PlannedSceneSource(section="Results", page=1, paragraph=1),
         )
 
 

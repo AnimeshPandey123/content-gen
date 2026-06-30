@@ -2,10 +2,8 @@
 
 from pydantic import BaseModel, Field
 
-from app.models.caption import Caption
 from app.models.document import Document
-from app.models.narration import Narration
-from app.models.screenshot import ScreenshotRegion
+from app.models.script import Script
 from app.models.section import Section
 from app.models.storyboard import Storyboard
 from app.models.video_project import VideoProject
@@ -32,25 +30,11 @@ class StoryboardResult(BaseModel):
     storyboard: Storyboard
 
 
-class ScreenshotPlan(BaseModel):
-    """Planned screenshot regions for each scene."""
+class ScriptPlan(BaseModel):
+    """Generated script paired with its storyboard."""
 
     storyboard_result: StoryboardResult
-    regions: list[ScreenshotRegion] = Field(min_length=1)
-
-
-class NarrationPlan(BaseModel):
-    """Generated narration scripts per scene."""
-
-    screenshot_plan: ScreenshotPlan
-    narrations: list[Narration] = Field(min_length=1)
-
-
-class CaptionPlan(BaseModel):
-    """Generated captions aligned to narration."""
-
-    narration_plan: NarrationPlan
-    captions: list[Caption] = Field(min_length=1)
+    script: Script
 
 
 class RenderResult(BaseModel):
