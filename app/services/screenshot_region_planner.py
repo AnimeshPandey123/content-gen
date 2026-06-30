@@ -89,14 +89,14 @@ class ScreenshotRegionPlanner:
                 f"Paragraph {ref.index} has no bounding box for screenshot planning",
             )
 
-        padded = self._apply_padding(bbox, ref.page)
+        crop = self._finalize_crop(bbox, ref.page)
         return ScreenshotRegion(
             scene_id=scene_id,
             page_number=ref.page_number,
-            x=padded.x,
-            y=padded.y,
-            width=padded.width,
-            height=padded.height,
+            x=crop.x,
+            y=crop.y,
+            width=crop.width,
+            height=crop.height,
             paragraph_index=paragraph_index or ref.index,
             block_id=ref.block.id,
         )
@@ -113,7 +113,17 @@ class ScreenshotRegionPlanner:
             raise ScreenshotRegionError(
                 f"Paragraph {ref.index} has no bounding box for screenshot planning",
             )
-        return ref.page_number, self._apply_padding(bbox, ref.page)
+        return ref.page_number, self._finalize_crop(bbox, ref.page)
+
+    def crop_for_page(self, document: Document, page_number: int) -> BoundingBox:
+        """Return a mobile-friendly crop of an entire PDF page."""
+        page = self._get_page(document, page_number)
+        page_width = page.width or 612.0
+        page_height = page.height or 792.0
+        return self._finalize_crop(
+            BoundingBox(x=0.0, y=0.0, width=page_width, height=page_height),
+            page,
+        )
 
     def region_for_scene(self, document: Document, scene) -> ScreenshotRegion:
         """Return screenshot region derived from a storyboard scene."""
@@ -123,14 +133,23 @@ class ScreenshotRegionPlanner:
             scene_id=scene.id,
         )
 
+    def _get_page(self, document: Document, page_number: int) -> Page:
+        for page in document.pages:
+            if page.page_number == page_number:
+                return page
+        raise ScreenshotRegionError(f"Page {page_number} not found in document")
+
+    def _finalize_crop(self, bbox: BoundingBox, page: Page) -> BoundingBox:
+        padded = self._apply_padding(bbox, page)
+        expanded = self._expand_bbox(padded, page)
+        return self._fit_mobile_aspect(expanded, page)
+
     def _apply_padding(self, bbox: BoundingBox, page: Page) -> BoundingBox:
         padding = self._settings.screenshot_padding
         if padding <= 0:
             return bbox
 
-        page_width = page.width or bbox.x + bbox.width + padding
-        page_height = page.height or bbox.y + bbox.height + padding
-
+        page_width, page_height = self._page_size(page, bbox)
         x = max(0.0, bbox.x - padding)
         y = max(0.0, bbox.y - padding)
         right = min(page_width, bbox.x + bbox.width + padding)
@@ -138,3 +157,53 @@ class ScreenshotRegionPlanner:
         width = max(right - x, 1.0)
         height = max(bottom - y, 1.0)
         return BoundingBox(x=x, y=y, width=width, height=height)
+
+    def _expand_bbox(self, bbox: BoundingBox, page: Page) -> BoundingBox:
+        factor = self._settings.screenshot_expand_factor
+        if factor <= 1.0:
+            return bbox
+
+        page_width, page_height = self._page_size(page, bbox)
+        center_x = bbox.x + bbox.width / 2
+        center_y = bbox.y + bbox.height / 2
+        width = min(bbox.width * factor, page_width)
+        height = min(bbox.height * factor, page_height)
+        x = max(0.0, center_x - width / 2)
+        y = max(0.0, center_y - height / 2)
+        if x + width > page_width:
+            x = max(0.0, page_width - width)
+        if y + height > page_height:
+            y = max(0.0, page_height - height)
+        return BoundingBox(x=x, y=y, width=width, height=height)
+
+    def _fit_mobile_aspect(self, bbox: BoundingBox, page: Page) -> BoundingBox:
+        if not self._settings.screenshot_mobile_crop:
+            return bbox
+
+        page_width, page_height = self._page_size(page, bbox)
+        target_aspect = self._settings.video_width / self._settings.video_height
+        center_x = bbox.x + bbox.width / 2
+        center_y = bbox.y + bbox.height / 2
+        width = bbox.width
+        height = bbox.height
+
+        if width / height > target_aspect:
+            height = width / target_aspect
+        else:
+            width = height * target_aspect
+
+        if height > page_height:
+            height = page_height
+            width = height * target_aspect
+        if width > page_width:
+            width = page_width
+            height = width / target_aspect
+
+        x = max(0.0, min(center_x - width / 2, page_width - width))
+        y = max(0.0, min(center_y - height / 2, page_height - height))
+        return BoundingBox(x=x, y=y, width=width, height=height)
+
+    def _page_size(self, page: Page, bbox: BoundingBox) -> tuple[float, float]:
+        page_width = page.width or bbox.x + bbox.width
+        page_height = page.height or bbox.y + bbox.height
+        return page_width, page_height

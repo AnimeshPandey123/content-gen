@@ -161,7 +161,7 @@ def test_storyboard_generation_output_type() -> None:
     )
     result = stage.run(_sample_content_plan())
     assert isinstance(result, StoryboardResult)
-    scene = result.storyboard.scenes[0]
+    scene = result.storyboard.scenes[1]
     assert scene.goal == "Introduce the sample"
     assert scene.visual.crop.width > 0
 

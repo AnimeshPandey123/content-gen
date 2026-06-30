@@ -46,9 +46,19 @@ def _document_with_paragraphs(count: int) -> Document:
     )
 
 
+def _planner_settings(**overrides) -> Settings:
+    values = {
+        "screenshot_padding": 0,
+        "screenshot_expand_factor": 1.0,
+        "screenshot_mobile_crop": False,
+    }
+    values.update(overrides)
+    return Settings(**values)
+
+
 def test_region_for_paragraph_17_returns_coordinates() -> None:
     document = _document_with_paragraphs(20)
-    planner = ScreenshotRegionPlanner(settings=Settings(screenshot_padding=0))
+    planner = ScreenshotRegionPlanner(settings=_planner_settings())
 
     region = planner.region_for_paragraph(document, 17, scene_id="scene-17")
 
@@ -134,7 +144,9 @@ def test_padding_clamps_to_page_bounds() -> None:
             ),
         ],
     )
-    planner = ScreenshotRegionPlanner(settings=Settings(screenshot_padding=10))
+    planner = ScreenshotRegionPlanner(
+        settings=_planner_settings(screenshot_padding=10, screenshot_expand_factor=1.0),
+    )
     region = planner.region_for_paragraph(document, 1, scene_id="scene-1")
 
     assert region.x == 80.0
@@ -145,7 +157,7 @@ def test_padding_clamps_to_page_bounds() -> None:
 
 def test_crop_for_paragraph_returns_page_and_bbox() -> None:
     document = _document_with_paragraphs(3)
-    planner = ScreenshotRegionPlanner(settings=Settings(screenshot_padding=0))
+    planner = ScreenshotRegionPlanner(settings=_planner_settings())
 
     page_number, crop = planner.crop_for_paragraph(document, 2)
 
@@ -155,7 +167,7 @@ def test_crop_for_paragraph_returns_page_and_bbox() -> None:
 
 def test_region_for_scene_uses_storyboard_source() -> None:
     document = _document_with_paragraphs(3)
-    planner = ScreenshotRegionPlanner(settings=Settings(screenshot_padding=0))
+    planner = ScreenshotRegionPlanner(settings=_planner_settings())
     scene = sample_scene(
         source=sample_scene().source.model_copy(update={"paragraph": 3}),
     )
@@ -175,7 +187,12 @@ def test_storyboard_scene_visual_matches_crop_for_paragraph(
 
     mock_section_selection(monkeypatch)
     mock_storyboard_generation(monkeypatch)
-    settings = Settings(output_dir=tmp_path / "output", screenshot_padding=0)
+    settings = Settings(
+        output_dir=tmp_path / "output",
+        screenshot_padding=0,
+        screenshot_expand_factor=1.0,
+        screenshot_mobile_crop=False,
+    )
     document = DocumentExtractionStage(settings=settings).run(
         PipelineInput(pdf_path=str(semantic_pdf), project_id="shot-doc"),
     )
@@ -188,3 +205,120 @@ def test_storyboard_scene_visual_matches_crop_for_paragraph(
     assert scene.visual.crop.width > 0
     assert scene.visual.crop.height > 0
     assert scene.source.paragraph is not None
+
+
+def test_crop_for_page_returns_mobile_friendly_region() -> None:
+    document = _document_with_paragraphs(1)
+    planner = ScreenshotRegionPlanner(
+        settings=Settings(video_width=1080, video_height=1920, screenshot_mobile_crop=True),
+    )
+
+    crop = planner.crop_for_page(document, 1)
+
+    assert crop.width / crop.height == pytest.approx(1080 / 1920, rel=0.01)
+
+
+def test_expand_factor_increases_crop_size() -> None:
+    document = _document_with_paragraphs(1)
+    tight = ScreenshotRegionPlanner(
+        settings=Settings(
+            screenshot_padding=0,
+            screenshot_expand_factor=1.0,
+            screenshot_mobile_crop=False,
+        ),
+    )
+    expanded = ScreenshotRegionPlanner(
+        settings=Settings(
+            screenshot_padding=0,
+            screenshot_expand_factor=2.0,
+            screenshot_mobile_crop=False,
+        ),
+    )
+
+    _, tight_crop = tight.crop_for_paragraph(document, 1)
+    _, wide_crop = expanded.crop_for_paragraph(document, 1)
+
+    assert wide_crop.width > tight_crop.width
+    assert wide_crop.height > tight_crop.height
+
+
+def test_crop_for_page_raises_for_missing_page() -> None:
+    document = _document_with_paragraphs(1)
+    planner = ScreenshotRegionPlanner()
+
+    with pytest.raises(ScreenshotRegionError, match="Page 9 not found"):
+        planner.crop_for_page(document, 9)
+
+
+def test_expand_bbox_clamps_to_page_edges() -> None:
+    document = Document(
+        id="doc-1",
+        source_path="/tmp/sample.pdf",
+        metadata=DocumentMetadata(page_count=1),
+        pages=[
+            Page(
+                page_number=1,
+                width=100.0,
+                height=100.0,
+                blocks=[
+                    Paragraph(
+                        id="p1",
+                        order=0,
+                        text="Corner paragraph",
+                        bbox=BoundingBox(x=95.0, y=95.0, width=5.0, height=5.0),
+                    ),
+                ],
+            ),
+        ],
+    )
+    planner = ScreenshotRegionPlanner(
+        settings=Settings(
+            screenshot_padding=0,
+            screenshot_expand_factor=3.0,
+            screenshot_mobile_crop=False,
+        ),
+    )
+
+    _, crop = planner.crop_for_paragraph(document, 1)
+
+    assert crop.x + crop.width <= 100.0
+    assert crop.y + crop.height <= 100.0
+
+
+def test_mobile_crop_handles_tall_regions() -> None:
+    planner = ScreenshotRegionPlanner(
+        settings=Settings(
+            video_width=1080,
+            video_height=1920,
+            screenshot_padding=0,
+            screenshot_expand_factor=1.0,
+            screenshot_mobile_crop=True,
+        ),
+    )
+    page = Page(page_number=1, width=200.0, height=400.0)
+
+    crop = planner._fit_mobile_aspect(
+        BoundingBox(x=75.0, y=100.0, width=50.0, height=200.0),
+        page,
+    )
+
+    assert crop.width / crop.height == pytest.approx(1080 / 1920, rel=0.01)
+
+
+def test_mobile_crop_clamps_width_to_page() -> None:
+    planner = ScreenshotRegionPlanner(
+        settings=Settings(
+            video_width=1080,
+            video_height=1920,
+            screenshot_mobile_crop=True,
+        ),
+    )
+    page = Page(page_number=1, width=100.0, height=500.0)
+
+    crop = planner._fit_mobile_aspect(
+        BoundingBox(x=30.0, y=100.0, width=40.0, height=200.0),
+        page,
+    )
+
+    assert crop.width <= 100.0
+    assert crop.width / crop.height == pytest.approx(1080 / 1920, rel=0.01)

@@ -41,9 +41,24 @@ class Settings(BaseSettings):
     output_dir: Path = Field(default=Path("output"), description="Directory for generated assets")
     page_image_dpi: int = Field(default=150, ge=72, description="DPI for rendered page images")
     screenshot_padding: float = Field(
-        default=4.0,
+        default=24.0,
         ge=0,
-        description="Padding in PDF points added around paragraph screenshot regions",
+        description="Padding in PDF points added around screenshot regions",
+    )
+    screenshot_expand_factor: float = Field(
+        default=2.0,
+        ge=1.0,
+        description="Multiplier applied to screenshot width/height for more context",
+    )
+    screenshot_mobile_crop: bool = Field(
+        default=True,
+        description="Fit screenshot crops to the vertical video aspect ratio",
+    )
+    title_page_duration_seconds: float = Field(
+        default=5.0,
+        ge=1.0,
+        le=15.0,
+        description="Duration of the opening title-page scene",
     )
 
     # Video rendering
@@ -56,8 +71,18 @@ class Settings(BaseSettings):
         description="DPI for high-resolution PDF screenshot crops",
     )
     camera_motion: str = Field(
-        default="ken_burns",
+        default="static",
         description="Camera motion style: static, zoom, pan, ken_burns, highlight",
+    )
+    scene_transition: str = Field(
+        default="crossfade",
+        description="Transition between scene clips: cut or crossfade",
+    )
+    scene_transition_duration: float = Field(
+        default=0.5,
+        ge=0.1,
+        le=2.0,
+        description="Crossfade duration in seconds between scene clips",
     )
     ffmpeg_path: str = Field(default="ffmpeg", description="Path to the FFmpeg binary")
     subtitle_font_size: int = Field(default=72, ge=12, description="ASS subtitle font size")

@@ -105,7 +105,9 @@ def mock_storyboard_generation(monkeypatch) -> None:
     def _fake_generate(self, content_plan):
         section = content_plan.selected_sections[0]
         paragraph_index = section.paragraph_indices[0] if section.paragraph_indices else 1
-        page_number, crop = ScreenshotRegionPlanner().crop_for_paragraph(
+        planner = ScreenshotRegionPlanner()
+        title_crop = planner.crop_for_page(content_plan.document, 1)
+        page_number, content_crop = planner.crop_for_paragraph(
             content_plan.document,
             paragraph_index,
         )
@@ -113,9 +115,22 @@ def mock_storyboard_generation(monkeypatch) -> None:
             document_id=content_plan.document.id,
             scenes=[
                 Scene(
-                    id=f"{content_plan.document.id}-scene-1",
+                    id=f"{content_plan.document.id}-scene-intro",
                     section_id=section.id,
                     order=0,
+                    goal="Show the paper title page",
+                    duration_seconds=5.0,
+                    source=SceneSource(
+                        section=section.title,
+                        page=1,
+                        paragraph=1,
+                    ),
+                    visual=SceneVisual(page=1, crop=title_crop),
+                ),
+                Scene(
+                    id=f"{content_plan.document.id}-scene-1",
+                    section_id=section.id,
+                    order=1,
                     goal=f"Introduce {section.title}",
                     duration_seconds=8.0,
                     source=SceneSource(
@@ -123,7 +138,7 @@ def mock_storyboard_generation(monkeypatch) -> None:
                         page=page_number,
                         paragraph=paragraph_index,
                     ),
-                    visual=SceneVisual(page=page_number, crop=crop),
+                    visual=SceneVisual(page=page_number, crop=content_crop),
                 ),
             ],
         )

@@ -17,8 +17,8 @@ def build_video_filter(
     """Build an FFmpeg -vf filter chain for camera motion and subtitles."""
     frames = max(int(duration_seconds * fps), 1)
     base = (
-        f"scale={width}:{height}:force_original_aspect_ratio=decrease,"
-        f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2"
+        f"scale={width}:{height}:force_original_aspect_ratio=increase,"
+        f"crop={width}:{height}:(iw-{width})/2:(ih-{height})/2"
     )
     motion_filter = _motion_filter(motion, width=width, height=height, fps=fps, frames=frames)
     filters = [base, motion_filter]
@@ -26,6 +26,38 @@ def build_video_filter(
         escaped = ass_path.replace("\\", "/").replace(":", r"\:")
         filters.append(f"ass={escaped}")
     return ",".join(filters)
+
+
+def build_clip_transition_filter(
+    *,
+    clip_count: int,
+    durations: list[float],
+    transition_duration: float,
+) -> str:
+    """Build an FFmpeg filter_complex graph that crossfades scene clips."""
+    if clip_count < 2:
+        raise ValueError("At least two clips are required for transitions")
+
+    video_filters: list[str] = []
+    audio_filters: list[str] = []
+    current_video = "[0:v]"
+    current_audio = "[0:a]"
+
+    for index in range(1, clip_count):
+        offset = sum(durations[:index]) - index * transition_duration
+        video_label = "[vout]" if index == clip_count - 1 else f"[v{index}]"
+        audio_label = "[aout]" if index == clip_count - 1 else f"[a{index}]"
+        video_filters.append(
+            f"{current_video}[{index}:v]xfade=transition=fade:duration={transition_duration:.3f}"
+            f":offset={offset:.3f}{video_label}",
+        )
+        audio_filters.append(
+            f"{current_audio}[{index}:a]acrossfade=d={transition_duration:.3f}{audio_label}",
+        )
+        current_video = video_label
+        current_audio = audio_label
+
+    return ";".join(video_filters + audio_filters)
 
 
 def _motion_filter(
@@ -56,7 +88,4 @@ def _motion_filter(
             f"drawbox=x={width // 4}:y={height // 3}:w={width // 2}:h={height // 4}:"
             f"color=yellow@0.35:t=fill"
         )
-    return (
-        f"zoompan=z='min(zoom+0.0015,1.5)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
-        f":d={frames}:s={size}:fps={fps}"
-    )
+    return f"fps={fps}"

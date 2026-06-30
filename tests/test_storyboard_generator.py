@@ -79,8 +79,13 @@ def test_generate_storyboard_builds_scene_models() -> None:
 
     storyboard = generator.generate_storyboard(_content_plan())
 
-    assert len(storyboard.scenes) == 1
-    scene = storyboard.scenes[0]
+    assert len(storyboard.scenes) == 2
+    intro = storyboard.scenes[0]
+    assert intro.goal == "Show the paper title page"
+    assert intro.order == 0
+    assert intro.visual.page == 1
+
+    scene = storyboard.scenes[1]
     assert scene.goal == "Introduce the sample"
     assert scene.source.paragraph == 1
     assert scene.visual.crop.width > 0
@@ -153,6 +158,19 @@ def test_generate_storyboard_raises_when_llm_returns_unknown_sections() -> None:
 
     with pytest.raises(StoryboardGenerationError, match="No scenes matched"):
         generator.generate_storyboard(_content_plan())
+
+
+def test_generate_storyboard_skips_title_page_when_document_has_no_pages() -> None:
+    from tests.conftest import sample_scene
+
+    generator = StoryboardGenerator()
+    plan = _content_plan()
+    scene = sample_scene(id="scene-1", order=0)
+    empty_document = plan.document.model_copy(update={"pages": []})
+
+    scenes = generator._with_title_page_scene(empty_document, plan, [scene])
+
+    assert scenes == [scene]
 
 
 def test_generate_storyboard_skips_invalid_paragraph_index() -> None:

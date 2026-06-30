@@ -4,6 +4,7 @@ import re
 
 from app.agents.gemini_client import GeminiClient, GeminiClientError
 from app.config import Settings, get_settings
+from app.models.document import Document
 from app.models.pipeline import ContentPlan
 from app.models.scene import Scene, SceneSource, SceneVisual
 from app.models.section import Section
@@ -102,7 +103,41 @@ class StoryboardGenerator:
         if not scenes:
             raise StoryboardGenerationError("No scenes matched the LLM storyboard output")
 
-        return Storyboard(document_id=document.id, scenes=scenes)
+        return Storyboard(
+            document_id=document.id,
+            scenes=self._with_title_page_scene(document, content_plan, scenes),
+        )
+
+    def _with_title_page_scene(
+        self,
+        document: Document,
+        content_plan: ContentPlan,
+        scenes: list[Scene],
+    ) -> list[Scene]:
+        """Prepend a full first-page scene so the video opens on the paper cover."""
+        if not document.pages or not content_plan.selected_sections:
+            return scenes
+
+        section = content_plan.selected_sections[0]
+        first_page_number = document.pages[0].page_number
+        crop = self._region_planner.crop_for_page(document, first_page_number)
+        intro = Scene(
+            id=f"{document.id}-scene-intro",
+            section_id=section.id,
+            order=0,
+            goal="Show the paper title page",
+            duration_seconds=self._settings.title_page_duration_seconds,
+            source=SceneSource(
+                section=section.title,
+                page=first_page_number,
+                paragraph=1,
+            ),
+            visual=SceneVisual(page=first_page_number, crop=crop),
+        )
+        shifted = [
+            scene.model_copy(update={"order": index}) for index, scene in enumerate(scenes, start=1)
+        ]
+        return [intro, *shifted]
 
 
 def _match_section(sections: list[Section], source_title: str) -> Section | None:

@@ -75,7 +75,13 @@ Copy `.env.example` to `.env` and adjust as needed:
 | `OUTPUT_DIR` | `output` | Root directory for rendered assets |
 | `VIDEO_WIDTH` / `VIDEO_HEIGHT` | `1080` / `1920` | Vertical video dimensions |
 | `SCREENSHOT_DPI` | `300` | DPI for PDF page crops |
-| `CAMERA_MOTION` | `ken_burns` | Camera effect (`zoom`, `pan`, `ken_burns`) |
+| `SCREENSHOT_PADDING` | `24` | Extra margin around screenshot regions (PDF points) |
+| `SCREENSHOT_EXPAND_FACTOR` | `2.0` | Widen crops for more page context |
+| `SCREENSHOT_MOBILE_CROP` | `true` | Fit crops to 9:16 vertical video |
+| `TITLE_PAGE_DURATION_SECONDS` | `5` | Duration of the opening title-page scene |
+| `CAMERA_MOTION` | `static` | Per-scene image motion (`static` keeps screenshots still) |
+| `SCENE_TRANSITION` | `crossfade` | Between-scene transition: `crossfade` or `cut` |
+| `SCENE_TRANSITION_DURATION` | `0.5` | Crossfade length in seconds |
 | `WORDS_PER_MINUTE` | `150` | Narration pacing for audio duration |
 | `FFMPEG_PATH` | `ffmpeg` | Path to the FFmpeg binary |
 

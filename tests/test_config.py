@@ -12,7 +12,9 @@ def test_settings_defaults() -> None:
     assert settings.section_selection_limit == 5
     assert settings.storyboard_max_scenes == 8
     assert settings.screenshot_dpi == 300
-    assert settings.camera_motion == "ken_burns"
+    assert settings.camera_motion == "static"
+    assert settings.scene_transition == "crossfade"
+    assert settings.scene_transition_duration == 0.5
     assert settings.video_width == 1080
     assert settings.video_height == 1920
     assert settings.narration_speed == 1.0
@@ -21,7 +23,10 @@ def test_settings_defaults() -> None:
     assert settings.tts_voice == "Kore"
     assert settings.tts_sample_rate == 24000
     assert settings.max_retries == 3
-    assert settings.screenshot_padding == 4.0
+    assert settings.screenshot_padding == 24.0
+    assert settings.screenshot_expand_factor == 2.0
+    assert settings.screenshot_mobile_crop is True
+    assert settings.title_page_duration_seconds == 5.0
 
 
 def test_settings_from_environment(monkeypatch, tmp_path) -> None:
