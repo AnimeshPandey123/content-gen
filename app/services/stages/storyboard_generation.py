@@ -1,28 +1,27 @@
-"""Placeholder storyboard generation stage."""
+"""LLM-backed storyboard generation stage."""
 
+from app.config import Settings, get_settings
 from app.models.pipeline import ContentPlan, StoryboardResult
-from app.models.scene import Scene
-from app.models.storyboard import Storyboard
+from app.services.storyboard_generator import StoryboardGenerator
 from app.workflows.stage import Stage
 
 
 class StoryboardGenerationStage(Stage[ContentPlan, StoryboardResult]):
-    """Create a storyboard from selected content (placeholder)."""
+    """Plan scenes with goal, duration, source, screenshot, narration, and caption."""
+
+    def __init__(
+        self,
+        *,
+        settings: Settings | None = None,
+        generator: StoryboardGenerator | None = None,
+    ) -> None:
+        self._settings = settings or get_settings()
+        self._generator = generator or StoryboardGenerator(settings=self._settings)
 
     @property
     def name(self) -> str:
         return "storyboard_generation"
 
     def run(self, input_model: ContentPlan) -> StoryboardResult:
-        section = input_model.selected_sections[0]
-        paragraph_index = section.paragraph_indices[0] if section.paragraph_indices else None
-        scene = Scene(
-            id=f"{input_model.document.id}-scene-1",
-            section_id=section.id,
-            order=0,
-            description=f"Visual summary of: {section.title}",
-            duration_seconds=5.0,
-            paragraph_index=paragraph_index,
-        )
-        storyboard = Storyboard(document_id=input_model.document.id, scenes=[scene])
+        storyboard = self._generator.generate_storyboard(input_model)
         return StoryboardResult(content_plan=input_model, storyboard=storyboard)

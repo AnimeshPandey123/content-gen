@@ -39,9 +39,10 @@ class _AlwaysFailStage(Stage[PipelineInput, PipelineInput]):
 
 
 def test_full_pipeline_execution(tmp_path, monkeypatch, sample_pdf) -> None:
-    from tests.conftest import mock_section_selection
+    from tests.conftest import mock_section_selection, mock_storyboard_generation
 
     mock_section_selection(monkeypatch)
+    mock_storyboard_generation(monkeypatch)
     monkeypatch.setenv("OUTPUT_DIR", str(tmp_path))
 
     coordinator = PipelineCoordinator(build_default_stages())

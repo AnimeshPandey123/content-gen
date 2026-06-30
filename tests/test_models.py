@@ -58,8 +58,12 @@ def test_models_serialize_to_json() -> None:
         id="sc-1",
         section_id="sec-1",
         order=0,
-        description="Intro scene",
+        goal="Intro scene",
         duration_seconds=3.0,
+        source="Intro",
+        screenshot="Opening paragraph",
+        narration="Hello world",
+        caption="Hello world",
     )
     storyboard = Storyboard(document_id="doc-1", scenes=[scene])
     region = ScreenshotRegion(scene_id="sc-1", page_number=1, x=0, y=0, width=100, height=100)

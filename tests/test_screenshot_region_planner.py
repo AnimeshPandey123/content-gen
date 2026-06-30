@@ -16,6 +16,22 @@ from app.models.storyboard import Storyboard
 from app.services.screenshot_region_planner import ScreenshotRegionError, ScreenshotRegionPlanner
 
 
+def _scene(**overrides) -> Scene:
+    values = {
+        "id": "scene-1",
+        "section_id": "sec-1",
+        "order": 0,
+        "goal": "Scene",
+        "duration_seconds": 4.0,
+        "source": "Highlight",
+        "screenshot": "Paragraph",
+        "narration": "Narration",
+        "caption": "Caption",
+    }
+    values.update(overrides)
+    return Scene(**values)
+
+
 def _document_with_paragraphs(count: int) -> Document:
     blocks: list[Paragraph] = []
     for index in range(1, count + 1):
@@ -139,16 +155,7 @@ def test_plan_for_storyboard_uses_scene_paragraph_index() -> None:
         ),
         storyboard=Storyboard(
             document_id="doc-1",
-            scenes=[
-                Scene(
-                    id="scene-1",
-                    section_id="sec-1",
-                    order=0,
-                    description="Scene",
-                    duration_seconds=4.0,
-                    paragraph_index=3,
-                ),
-            ],
+            scenes=[_scene(paragraph_index=3)],
         ),
     )
 
@@ -179,15 +186,7 @@ def test_plan_for_storyboard_falls_back_to_section_paragraph_index() -> None:
         ),
         storyboard=Storyboard(
             document_id="doc-1",
-            scenes=[
-                Scene(
-                    id="scene-1",
-                    section_id="sec-1",
-                    order=0,
-                    description="Scene",
-                    duration_seconds=4.0,
-                ),
-            ],
+            scenes=[_scene()],
         ),
     )
 
@@ -221,15 +220,7 @@ def test_paragraph_index_for_section_skips_unmatched_sections() -> None:
         ),
         storyboard=Storyboard(
             document_id="doc-1",
-            scenes=[
-                Scene(
-                    id="scene-1",
-                    section_id="sec-2",
-                    order=0,
-                    description="Scene",
-                    duration_seconds=4.0,
-                ),
-            ],
+            scenes=[_scene(section_id="sec-2")],
         ),
     )
     planner = ScreenshotRegionPlanner()
@@ -252,15 +243,7 @@ def test_plan_for_storyboard_defaults_to_first_paragraph() -> None:
         ),
         storyboard=Storyboard(
             document_id="doc-1",
-            scenes=[
-                Scene(
-                    id="scene-1",
-                    section_id="sec-1",
-                    order=0,
-                    description="Scene",
-                    duration_seconds=4.0,
-                ),
-            ],
+            scenes=[_scene()],
         ),
     )
 
@@ -283,9 +266,10 @@ def test_screenshot_planning_stage_with_real_pdf(
     from app.services.stages.semantic_parsing import SemanticParsingStage
     from app.services.stages.storyboard_generation import StoryboardGenerationStage
 
-    from tests.conftest import mock_section_selection
+    from tests.conftest import mock_section_selection, mock_storyboard_generation
 
     mock_section_selection(monkeypatch)
+    mock_storyboard_generation(monkeypatch)
     settings = Settings(output_dir=tmp_path / "output", screenshot_padding=0)
     document = DocumentExtractionStage(settings=settings).run(
         PipelineInput(pdf_path=str(semantic_pdf), project_id="shot-doc"),

@@ -81,6 +81,36 @@ def mock_section_selection(monkeypatch) -> None:
     monkeypatch.setattr(SectionSelector, "select_sections", _fake_select)
 
 
+def mock_storyboard_generation(monkeypatch) -> None:
+    """Bypass Gemini during integration tests."""
+    from app.models.scene import Scene
+    from app.models.storyboard import Storyboard
+    from app.services.storyboard_generator import StoryboardGenerator
+
+    def _fake_generate(self, content_plan):
+        section = content_plan.selected_sections[0]
+        paragraph_index = section.paragraph_indices[0] if section.paragraph_indices else 1
+        return Storyboard(
+            document_id=content_plan.document.id,
+            scenes=[
+                Scene(
+                    id=f"{content_plan.document.id}-scene-1",
+                    section_id=section.id,
+                    order=0,
+                    goal=f"Visual summary of {section.title}",
+                    duration_seconds=5.0,
+                    source=section.title,
+                    screenshot=f"Paragraph {paragraph_index}",
+                    narration=f"Here is a quick look at {section.title}.",
+                    caption=section.title,
+                    paragraph_index=paragraph_index,
+                ),
+            ],
+        )
+
+    monkeypatch.setattr(StoryboardGenerator, "generate_storyboard", _fake_generate)
+
+
 @pytest.fixture(autouse=True)
 def _reset_settings() -> None:
     reset_settings()

@@ -18,17 +18,23 @@ class Settings(BaseSettings):
     # LLM
     gemini_api_key: str | None = Field(
         default=None,
-        description="Google Gemini API key for section selection",
+        description="Google Gemini API key for LLM stages",
     )
     gemini_model: str = Field(
         default="gemini-2.0-flash",
-        description="Gemini model used for section selection",
+        description="Gemini model used for LLM stages",
     )
     section_selection_limit: int = Field(
         default=5,
         ge=1,
         le=5,
         description="Maximum number of sections to select for the video",
+    )
+    storyboard_max_scenes: int = Field(
+        default=8,
+        ge=1,
+        le=20,
+        description="Maximum number of scenes in the generated storyboard",
     )
 
     # Paths

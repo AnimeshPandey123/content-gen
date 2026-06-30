@@ -7,13 +7,14 @@ import sys
 from app.config import reset_settings
 from app.main import main
 
-from tests.conftest import mock_section_selection
+from tests.conftest import mock_section_selection, mock_storyboard_generation
 
 
 def test_main_runs_pipeline(sample_pdf, tmp_path, monkeypatch, capsys) -> None:
     monkeypatch.setenv("OUTPUT_DIR", str(tmp_path))
     reset_settings()
     mock_section_selection(monkeypatch)
+    mock_storyboard_generation(monkeypatch)
 
     code = main([str(sample_pdf), "--project-id", "cli-test"])
     captured = capsys.readouterr()
@@ -27,6 +28,7 @@ def test_main_module_entrypoint(sample_pdf, tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("OUTPUT_DIR", str(tmp_path))
     reset_settings()
     mock_section_selection(monkeypatch)
+    mock_storyboard_generation(monkeypatch)
     exit_codes: list[int] = []
     monkeypatch.setattr(sys, "argv", ["app.main", str(sample_pdf), "--project-id", "entry"])
     monkeypatch.setattr(sys, "exit", lambda code: exit_codes.append(code))

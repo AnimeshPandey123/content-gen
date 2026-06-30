@@ -117,15 +117,58 @@ def test_content_planning_output_type() -> None:
 
 
 def test_storyboard_generation_output_type() -> None:
-    stage = StoryboardGenerationStage()
+    from app.models.storyboard_generation import PlannedScene, StoryboardGenerationResponse
+    from app.services.storyboard_generator import StoryboardGenerator
+
+    class _FakeClient:
+        def generate_model(self, prompt, response_model):
+            return StoryboardGenerationResponse(
+                scenes=[
+                    PlannedScene(
+                        goal="Introduce the sample",
+                        duration_seconds=5.0,
+                        source="T",
+                        screenshot="Opening paragraph",
+                        paragraph_index=1,
+                        narration="Here is the sample content.",
+                        caption="Sample",
+                    ),
+                ],
+            )
+
+    stage = StoryboardGenerationStage(
+        generator=StoryboardGenerator(gemini_client=_FakeClient()),
+    )
     result = stage.run(_sample_content_plan())
     assert isinstance(result, StoryboardResult)
-    assert len(result.storyboard.scenes) >= 1
+    scene = result.storyboard.scenes[0]
+    assert scene.goal == "Introduce the sample"
+    assert scene.narration == "Here is the sample content."
+    assert scene.caption == "Sample"
 
 
 def test_screenshot_planning_output_type() -> None:
-    storyboard_stage = StoryboardGenerationStage()
-    storyboard_result = storyboard_stage.run(_sample_content_plan())
+    from app.models.storyboard_generation import PlannedScene, StoryboardGenerationResponse
+    from app.services.storyboard_generator import StoryboardGenerator
+
+    class _FakeClient:
+        def generate_model(self, prompt, response_model):
+            return StoryboardGenerationResponse(
+                scenes=[
+                    PlannedScene(
+                        goal="Introduce the sample",
+                        duration_seconds=5.0,
+                        source="T",
+                        screenshot="Opening paragraph",
+                        paragraph_index=1,
+                        narration="Here is the sample content.",
+                        caption="Sample",
+                    ),
+                ],
+            )
+
+    generator = StoryboardGenerator(gemini_client=_FakeClient())
+    storyboard_result = StoryboardGenerationStage(generator=generator).run(_sample_content_plan())
     result = ScreenshotPlanningStage().run(storyboard_result)
     assert isinstance(result, ScreenshotPlan)
     assert len(result.regions) >= 1
@@ -133,8 +176,106 @@ def test_screenshot_planning_output_type() -> None:
     assert result.regions[0].width > 0
 
 
+def _storyboard_result_with_scenes(scenes: list) -> StoryboardResult:
+    from app.models.storyboard import Storyboard
+
+    content_plan = _sample_content_plan()
+    return StoryboardResult(
+        content_plan=content_plan,
+        storyboard=Storyboard(document_id=content_plan.document.id, scenes=scenes),
+    )
+
+
+def test_narration_generation_uses_storyboard_scripts() -> None:
+    from app.models.scene import Scene
+
+    storyboard_result = _storyboard_result_with_scenes(
+        [
+            Scene(
+                id="scene-1",
+                section_id="sec-1",
+                order=0,
+                goal="Hook",
+                duration_seconds=4.0,
+                source="T",
+                screenshot="Paragraph 1",
+                narration="Planned narration",
+                caption="Hook",
+                paragraph_index=1,
+            ),
+        ],
+    )
+    screenshot_plan = ScreenshotPlanningStage().run(storyboard_result)
+    result = NarrationGenerationStage().run(screenshot_plan)
+    assert isinstance(result, NarrationPlan)
+    assert result.narrations[0].text == "Planned narration"
+
+
+def test_caption_generation_builds_timeline_from_storyboard() -> None:
+    from app.models.scene import Scene
+
+    storyboard_result = _storyboard_result_with_scenes(
+        [
+            Scene(
+                id="scene-1",
+                section_id="sec-1",
+                order=0,
+                goal="Hook",
+                duration_seconds=4.0,
+                source="T",
+                screenshot="Paragraph 1",
+                narration="First",
+                caption="First caption",
+                paragraph_index=1,
+            ),
+            Scene(
+                id="scene-2",
+                section_id="sec-1",
+                order=1,
+                goal="Evidence",
+                duration_seconds=6.0,
+                source="T",
+                screenshot="Paragraph 1",
+                narration="Second",
+                caption="Second caption",
+                paragraph_index=1,
+            ),
+        ],
+    )
+    screenshot_plan = ScreenshotPlanningStage().run(storyboard_result)
+    narration_plan = NarrationGenerationStage().run(screenshot_plan)
+    result = CaptionGenerationStage().run(narration_plan)
+    assert isinstance(result, CaptionPlan)
+    assert result.captions[0].text == "First caption"
+    assert result.captions[0].start_time == 0.0
+    assert result.captions[0].end_time == 4.0
+    assert result.captions[1].text == "Second caption"
+    assert result.captions[1].start_time == 4.0
+    assert result.captions[1].end_time == 10.0
+
+
 def test_narration_generation_output_type() -> None:
-    storyboard_result = StoryboardGenerationStage().run(_sample_content_plan())
+    from app.models.storyboard_generation import PlannedScene, StoryboardGenerationResponse
+    from app.services.storyboard_generator import StoryboardGenerator
+
+    class _FakeClient:
+        def generate_model(self, prompt, response_model):
+            return StoryboardGenerationResponse(
+                scenes=[
+                    PlannedScene(
+                        goal="Introduce the sample",
+                        duration_seconds=5.0,
+                        source="T",
+                        screenshot="Opening paragraph",
+                        paragraph_index=1,
+                        narration="Here is the sample content.",
+                        caption="Sample",
+                    ),
+                ],
+            )
+
+    generator = StoryboardGenerator(gemini_client=_FakeClient())
+    storyboard_result = StoryboardGenerationStage(generator=generator).run(_sample_content_plan())
     screenshot_plan = ScreenshotPlanningStage().run(storyboard_result)
     result = NarrationGenerationStage().run(screenshot_plan)
     assert isinstance(result, NarrationPlan)
@@ -142,7 +283,27 @@ def test_narration_generation_output_type() -> None:
 
 
 def test_caption_generation_output_type() -> None:
-    storyboard_result = StoryboardGenerationStage().run(_sample_content_plan())
+    from app.models.storyboard_generation import PlannedScene, StoryboardGenerationResponse
+    from app.services.storyboard_generator import StoryboardGenerator
+
+    class _FakeClient:
+        def generate_model(self, prompt, response_model):
+            return StoryboardGenerationResponse(
+                scenes=[
+                    PlannedScene(
+                        goal="Introduce the sample",
+                        duration_seconds=5.0,
+                        source="T",
+                        screenshot="Opening paragraph",
+                        paragraph_index=1,
+                        narration="Here is the sample content.",
+                        caption="Sample",
+                    ),
+                ],
+            )
+
+    generator = StoryboardGenerator(gemini_client=_FakeClient())
+    storyboard_result = StoryboardGenerationStage(generator=generator).run(_sample_content_plan())
     screenshot_plan = ScreenshotPlanningStage().run(storyboard_result)
     narration_plan = NarrationGenerationStage().run(screenshot_plan)
     result = CaptionGenerationStage().run(narration_plan)
@@ -151,12 +312,32 @@ def test_caption_generation_output_type() -> None:
 
 
 def test_video_rendering_output_type(tmp_path, monkeypatch) -> None:
+    from app.models.storyboard_generation import PlannedScene, StoryboardGenerationResponse
+    from app.services.storyboard_generator import StoryboardGenerator
+
+    class _FakeClient:
+        def generate_model(self, prompt, response_model):
+            return StoryboardGenerationResponse(
+                scenes=[
+                    PlannedScene(
+                        goal="Introduce the sample",
+                        duration_seconds=5.0,
+                        source="T",
+                        screenshot="Opening paragraph",
+                        paragraph_index=1,
+                        narration="Here is the sample content.",
+                        caption="Sample",
+                    ),
+                ],
+            )
+
     monkeypatch.setenv("OUTPUT_DIR", str(tmp_path))
     from app.config import reset_settings
 
     reset_settings()
 
-    storyboard_result = StoryboardGenerationStage().run(_sample_content_plan())
+    generator = StoryboardGenerator(gemini_client=_FakeClient())
+    storyboard_result = StoryboardGenerationStage(generator=generator).run(_sample_content_plan())
     screenshot_plan = ScreenshotPlanningStage().run(storyboard_result)
     narration_plan = NarrationGenerationStage().run(screenshot_plan)
     caption_plan = CaptionGenerationStage().run(narration_plan)
