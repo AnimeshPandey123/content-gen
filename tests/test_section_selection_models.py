@@ -16,5 +16,5 @@ def test_section_selection_response_limits() -> None:
 
     with pytest.raises(ValidationError):
         SectionSelectionResponse(
-            sections=[RankedSection(section=f"S{i}", importance=0.5) for i in range(6)],
+            sections=[RankedSection(section=f"S{i}", importance=0.5) for i in range(21)],
         )

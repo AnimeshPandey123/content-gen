@@ -17,6 +17,12 @@ def screenshot_path(project_dir: Path, scene_number: int) -> Path:
     return project_dir / "screenshots" / f"{scene_basename(scene_number)}.png"
 
 
+def shot_screenshot_path(project_dir: Path, scene_number: int, shot_order: int) -> Path:
+    return (
+        project_dir / "screenshots" / f"{scene_basename(scene_number)}_shot{shot_order + 1:02d}.png"
+    )
+
+
 def audio_path(project_dir: Path, scene_number: int) -> Path:
     return project_dir / "audio" / f"{scene_basename(scene_number)}.wav"
 

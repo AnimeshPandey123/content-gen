@@ -42,10 +42,8 @@ class SectionSelector:
         document: Document,
         candidates: list[SectionCandidate],
     ) -> list[RankedSection]:
-        limit = min(self._settings.section_selection_limit, len(candidates))
         prompt = build_section_selection_prompt(
             candidates,
-            limit=limit,
             document_title=document.title,
         )
         client = self._gemini_client or self._build_client()
@@ -55,6 +53,7 @@ class SectionSelector:
         except GeminiClientError as exc:
             raise SectionSelectionError(str(exc)) from exc
 
+        limit = min(self._settings.max_sections, len(candidates))
         return response.sections[:limit]
 
     def _build_client(self) -> GeminiClient:

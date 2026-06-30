@@ -32,7 +32,7 @@ from app.models.render import (
     SceneScreenshot,
     SceneSubtitle,
 )
-from app.models.scene import Scene, SceneSource, SceneVisual
+from app.models.scene import Scene, SceneShot, SceneSource, SceneVisual
 from app.models.screenshot import ScreenshotRegion
 from app.models.script import Script, ScriptScene
 from app.models.section import Section
@@ -62,6 +62,7 @@ __all__ = [
     "SceneAudio",
     "SceneClip",
     "SceneScreenshot",
+    "SceneShot",
     "SceneSource",
     "SceneSubtitle",
     "SceneVisual",

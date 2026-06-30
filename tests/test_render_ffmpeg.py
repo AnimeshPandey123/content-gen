@@ -5,7 +5,90 @@ from unittest.mock import MagicMock
 
 import pytest
 from app.config import Settings
+from app.render.camera import build_multi_shot_video_filter
 from app.render.ffmpeg import FFmpegError, FFmpegRenderer
+
+
+def test_build_multi_shot_video_filter_requires_at_least_one_shot() -> None:
+    with pytest.raises(ValueError, match="At least one shot"):
+        build_multi_shot_video_filter(
+            shot_count=0,
+            motion="static",
+            width=1080,
+            height=1920,
+            fps=30,
+        )
+
+
+def test_scale_shot_durations_splits_evenly_when_total_is_zero() -> None:
+    renderer = FFmpegRenderer(settings=Settings())
+    scaled = renderer._scale_shot_durations([0.0, 0.0], 4.0)
+    assert scaled == [2.0, 2.0]
+
+
+def test_render_scene_raises_when_no_images(tmp_path: Path) -> None:
+    renderer = FFmpegRenderer(settings=Settings())
+
+    with pytest.raises(FFmpegError, match="At least one screenshot"):
+        renderer.render_scene(
+            image_paths=[],
+            shot_durations=[],
+            audio_path=str(tmp_path / "scene.wav"),
+            subtitle_path=str(tmp_path / "scene.ass"),
+            output_path=tmp_path / "scene.mp4",
+        )
+
+
+def test_build_multi_shot_video_filter_concatenates_shots() -> None:
+    filter_complex, output = build_multi_shot_video_filter(
+        shot_count=2,
+        motion="static",
+        width=1080,
+        height=1920,
+        fps=30,
+        ass_path="/tmp/scene.ass",
+    )
+
+    assert "concat=n=2:v=1:a=0" in filter_complex
+    assert "setsar=1" in filter_complex
+    assert output == "[vout]"
+
+
+def test_render_scene_supports_multiple_shots(monkeypatch, tmp_path: Path) -> None:
+    calls: list[list[str]] = []
+
+    def _fake_run(command, **kwargs):
+        calls.append(command)
+        return MagicMock(returncode=0, stderr="")
+
+    monkeypatch.setattr("app.render.ffmpeg.subprocess.run", _fake_run)
+    renderer = FFmpegRenderer(settings=Settings())
+    output_path = tmp_path / "scene.mp4"
+
+    renderer.render_scene(
+        image_paths=[str(tmp_path / "shot1.png"), str(tmp_path / "shot2.png")],
+        shot_durations=[2.0, 3.0],
+        audio_path=str(tmp_path / "scene.wav"),
+        subtitle_path=str(tmp_path / "scene.ass"),
+        output_path=output_path,
+        duration_seconds=5.0,
+    )
+
+    assert "-filter_complex" in calls[0]
+    assert calls[0].count("-loop") == 2
+
+
+def test_render_scene_requires_matching_shot_counts(tmp_path: Path) -> None:
+    renderer = FFmpegRenderer(settings=Settings())
+
+    with pytest.raises(FFmpegError, match="matching shot duration"):
+        renderer.render_scene(
+            image_paths=[str(tmp_path / "shot1.png"), str(tmp_path / "shot2.png")],
+            shot_durations=[2.0],
+            audio_path=str(tmp_path / "scene.wav"),
+            subtitle_path=str(tmp_path / "scene.ass"),
+            output_path=tmp_path / "scene.mp4",
+        )
 
 
 def test_render_scene_uses_static_motion_by_default(monkeypatch, tmp_path: Path) -> None:
@@ -20,7 +103,8 @@ def test_render_scene_uses_static_motion_by_default(monkeypatch, tmp_path: Path)
     output_path = tmp_path / "scene.mp4"
 
     renderer.render_scene(
-        image_path=str(tmp_path / "scene.png"),
+        image_paths=[str(tmp_path / "scene.png")],
+        shot_durations=[5.0],
         audio_path=str(tmp_path / "scene.wav"),
         subtitle_path=str(tmp_path / "scene.ass"),
         output_path=output_path,
@@ -45,7 +129,8 @@ def test_render_scene_can_still_apply_zoom_motion(monkeypatch, tmp_path: Path) -
     output_path = tmp_path / "scene.mp4"
 
     renderer.render_scene(
-        image_path=str(tmp_path / "scene.png"),
+        image_paths=[str(tmp_path / "scene.png")],
+        shot_durations=[5.0],
         audio_path=str(tmp_path / "scene.wav"),
         subtitle_path=str(tmp_path / "scene.ass"),
         output_path=output_path,
@@ -190,6 +275,34 @@ def test_run_raises_on_ffmpeg_failure(monkeypatch) -> None:
 
     with pytest.raises(FFmpegError, match="codec failed"):
         renderer._run(["-version"])
+
+
+def test_format_ffmpeg_stderr_prefers_error_lines() -> None:
+    from app.render.ffmpeg import _format_ffmpeg_stderr
+
+    stderr = (
+        "ffmpeg version 7.1.1\n"
+        "[Parsed_concat_9 @ 0x1] Input link parameters do not match\n"
+        "[fc#0 @ 0x2] Error reinitializing filters!\n"
+        "Conversion failed!\n"
+    )
+    message = _format_ffmpeg_stderr(stderr)
+
+    assert "do not match" in message
+    assert "Conversion failed" in message
+    assert "ffmpeg version" not in message
+
+
+def test_format_ffmpeg_stderr_falls_back_to_tail_and_truncates() -> None:
+    from app.render.ffmpeg import _format_ffmpeg_stderr
+
+    assert _format_ffmpeg_stderr("") == "ffmpeg failed"
+    assert _format_ffmpeg_stderr("line one\nline two") == "line one\nline two"
+
+    long_tail = "\n".join(f"status line {index}" for index in range(20))
+    truncated = _format_ffmpeg_stderr(long_tail, max_length=40)
+    assert len(truncated) == 40
+    assert truncated.endswith("line 19")
 
 
 def test_run_raises_when_ffmpeg_missing(monkeypatch) -> None:

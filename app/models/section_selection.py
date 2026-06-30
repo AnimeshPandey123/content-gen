@@ -15,6 +15,6 @@ class SectionSelectionResponse(BaseModel):
 
     sections: list[RankedSection] = Field(
         min_length=1,
-        max_length=5,
-        description="Top interesting sections ordered by importance",
+        max_length=20,
+        description="Sections chosen by the LLM for the short video",
     )

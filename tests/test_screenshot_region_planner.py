@@ -207,7 +207,30 @@ def test_storyboard_scene_visual_matches_crop_for_paragraph(
     assert scene.source.paragraph is not None
 
 
-def test_crop_for_page_returns_mobile_friendly_region() -> None:
+def test_crop_for_framing_supports_wide_focus_and_highlight() -> None:
+    document = _document_with_paragraphs(1)
+    planner = ScreenshotRegionPlanner(
+        settings=Settings(
+            screenshot_padding=0,
+            screenshot_expand_factor=3.0,
+            screenshot_mobile_crop=True,
+            video_width=1080,
+            video_height=1920,
+        ),
+    )
+
+    _, wide = planner.crop_for_framing(document, page=1, paragraph=1, framing="wide")
+    _, focus = planner.crop_for_framing(document, page=1, paragraph=1, framing="focus")
+    _, highlight = planner.crop_for_framing(document, page=1, paragraph=1, framing="highlight")
+
+    assert wide.width > 0 and focus.width > 0 and highlight.width > 0
+    assert wide.width == pytest.approx(612.0)
+    assert focus.width == pytest.approx(612.0)
+    assert focus.height >= 280.0
+    assert highlight.height >= 200.0
+
+
+def test_crop_for_page_returns_full_page() -> None:
     document = _document_with_paragraphs(1)
     planner = ScreenshotRegionPlanner(
         settings=Settings(video_width=1080, video_height=1920, screenshot_mobile_crop=True),
@@ -215,7 +238,10 @@ def test_crop_for_page_returns_mobile_friendly_region() -> None:
 
     crop = planner.crop_for_page(document, 1)
 
-    assert crop.width / crop.height == pytest.approx(1080 / 1920, rel=0.01)
+    assert crop.x == 0.0
+    assert crop.y == 0.0
+    assert crop.width == pytest.approx(612.0)
+    assert crop.height == pytest.approx(792.0)
 
 
 def test_expand_factor_increases_crop_size() -> None:
@@ -285,7 +311,45 @@ def test_expand_bbox_clamps_to_page_edges() -> None:
     assert crop.y + crop.height <= 100.0
 
 
-def test_mobile_crop_handles_tall_regions() -> None:
+def test_mobile_crop_caps_paragraph_context_height() -> None:
+    document = Document(
+        id="doc-1",
+        source_path="/tmp/sample.pdf",
+        metadata=DocumentMetadata(page_count=1),
+        pages=[
+            Page(
+                page_number=1,
+                width=612.0,
+                height=792.0,
+                blocks=[
+                    Paragraph(
+                        id="p1",
+                        order=0,
+                        text="Short paragraph",
+                        bbox=BoundingBox(x=72.0, y=400.0, width=400.0, height=18.0),
+                    ),
+                ],
+            ),
+        ],
+    )
+    planner = ScreenshotRegionPlanner(
+        settings=Settings(
+            video_width=1080,
+            video_height=1920,
+            screenshot_padding=24.0,
+            screenshot_expand_factor=2.0,
+            screenshot_mobile_crop=True,
+        ),
+    )
+
+    _, crop = planner.crop_for_paragraph(document, 1)
+
+    assert crop.width == pytest.approx(612.0)
+    assert crop.height < 792.0
+    assert crop.height >= 280.0
+
+
+def test_mobile_crop_uses_full_page_width() -> None:
     planner = ScreenshotRegionPlanner(
         settings=Settings(
             video_width=1080,
@@ -302,7 +366,8 @@ def test_mobile_crop_handles_tall_regions() -> None:
         page,
     )
 
-    assert crop.width / crop.height == pytest.approx(1080 / 1920, rel=0.01)
+    assert crop.width == 200.0
+    assert crop.x == 0.0
 
 
 def test_mobile_crop_clamps_width_to_page() -> None:
@@ -320,5 +385,115 @@ def test_mobile_crop_clamps_width_to_page() -> None:
         page,
     )
 
-    assert crop.width <= 100.0
-    assert crop.width / crop.height == pytest.approx(1080 / 1920, rel=0.01)
+    assert crop.width == 100.0
+    assert crop.x == 0.0
+
+
+def test_mobile_crop_enforces_minimum_height() -> None:
+    planner = ScreenshotRegionPlanner(
+        settings=Settings(
+            video_width=1080,
+            video_height=1920,
+            screenshot_mobile_crop=True,
+        ),
+    )
+    page = Page(page_number=1, width=612.0, height=792.0)
+    anchor = BoundingBox(x=72.0, y=400.0, width=400.0, height=18.0)
+
+    crop = planner._fit_mobile_aspect(
+        BoundingBox(x=72.0, y=400.0, width=50.0, height=30.0),
+        page,
+        anchor=anchor,
+        min_height=280.0,
+    )
+
+    assert crop.height == pytest.approx(280.0, rel=0.01)
+    assert crop.width == pytest.approx(612.0)
+
+
+def test_mobile_crop_limits_oversized_regions() -> None:
+    planner = ScreenshotRegionPlanner(
+        settings=Settings(
+            video_width=1080,
+            video_height=1920,
+            screenshot_mobile_crop=True,
+        ),
+    )
+    page = Page(page_number=1, width=612.0, height=792.0)
+
+    crop = planner._fit_mobile_aspect(
+        BoundingBox(x=72.0, y=100.0, width=500.0, height=500.0),
+        page,
+    )
+
+    assert crop.height <= 792.0 * 0.85 + 0.01
+    assert crop.width == pytest.approx(612.0)
+
+
+def test_crop_for_visual_raises_for_missing_label() -> None:
+    planner = ScreenshotRegionPlanner()
+    document = Document(
+        id="doc-empty",
+        source_path="/tmp/empty.pdf",
+        metadata=DocumentMetadata(page_count=1),
+        pages=[Page(page_number=1, text="", width=612, height=792, blocks=[])],
+    )
+
+    with pytest.raises(ScreenshotRegionError, match="Visual not found"):
+        planner.crop_for_visual(document, "Figure 1")
+
+
+def test_figure_mobile_crop_disabled_returns_expanded_bbox() -> None:
+    planner = ScreenshotRegionPlanner(
+        settings=Settings(
+            video_width=1080,
+            video_height=1920,
+            screenshot_mobile_crop=False,
+        ),
+    )
+    page = Page(page_number=1, width=612.0, height=792.0)
+    bbox = BoundingBox(x=72.0, y=150.0, width=200.0, height=100.0)
+
+    crop = planner._finalize_figure_crop(bbox, page)
+
+    assert crop.width >= bbox.width
+
+
+def test_figure_mobile_crop_fits_vertical_aspect() -> None:
+    planner = ScreenshotRegionPlanner(
+        settings=Settings(
+            video_width=1080,
+            video_height=1920,
+            screenshot_mobile_crop=True,
+        ),
+    )
+    page = Page(page_number=1, width=612.0, height=792.0)
+    anchor = BoundingBox(x=72.0, y=150.0, width=200.0, height=100.0)
+
+    crop = planner._fit_figure_mobile_aspect(
+        BoundingBox(x=72.0, y=150.0, width=220.0, height=120.0),
+        page,
+        anchor=anchor,
+    )
+
+    assert crop.width / crop.height == pytest.approx(9 / 16, rel=0.01)
+
+
+def test_figure_mobile_crop_expands_tall_figures() -> None:
+    planner = ScreenshotRegionPlanner(
+        settings=Settings(
+            video_width=1080,
+            video_height=1920,
+            screenshot_mobile_crop=True,
+        ),
+    )
+    page = Page(page_number=1, width=612.0, height=792.0)
+    anchor = BoundingBox(x=72.0, y=150.0, width=50.0, height=100.0)
+
+    crop = planner._fit_figure_mobile_aspect(
+        BoundingBox(x=72.0, y=150.0, width=50.0, height=400.0),
+        page,
+        anchor=anchor,
+    )
+
+    assert crop.height >= 400.0

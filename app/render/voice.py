@@ -7,6 +7,7 @@ from pathlib import Path
 from app.config import Settings, get_settings
 from app.models.render import RenderProject, SceneAudio
 from app.models.script import ScriptScene
+from app.render.audio import fit_audio_to_duration, probe_wav_duration
 from app.render.project import audio_path
 
 
@@ -49,6 +50,7 @@ class GeminiVoiceSynthesizer(VoiceSynthesizer):
         model: str,
         voice_name: str,
         sample_rate: int = 24000,
+        settings: Settings | None = None,
     ) -> None:
         if not api_key:
             raise VoiceGeneratorError("GEMINI_API_KEY is required for Gemini TTS")
@@ -59,6 +61,7 @@ class GeminiVoiceSynthesizer(VoiceSynthesizer):
         self._model = model
         self._voice_name = voice_name
         self._sample_rate = sample_rate
+        self._settings = settings
 
     def synthesize(self, text: str, output_path: Path, *, duration_seconds: float) -> float:
         from google.genai import types
@@ -84,7 +87,28 @@ class GeminiVoiceSynthesizer(VoiceSynthesizer):
             raise VoiceGeneratorError(f"Gemini TTS request failed: {exc}") from exc
 
         pcm = self._extract_pcm(response)
-        return self._write_pcm_wav(output_path, pcm)
+        actual_duration = self._write_pcm_wav(output_path, pcm)
+        return self._fit_to_scene_duration(output_path, duration_seconds, actual_duration)
+
+    def _fit_to_scene_duration(
+        self,
+        output_path: Path,
+        target_seconds: float,
+        actual_duration: float,
+    ) -> float:
+        settings = getattr(self, "_settings", None)
+        if settings is None:
+            return actual_duration
+
+        if not settings.tts_fit_scene_duration:
+            return actual_duration
+
+        return fit_audio_to_duration(
+            input_path=output_path,
+            target_seconds=target_seconds,
+            ffmpeg_path=settings.ffmpeg_path,
+            max_tempo=settings.tts_max_tempo,
+        )
 
     def _extract_pcm(self, response: object) -> bytes:
         candidates = getattr(response, "candidates", None)
@@ -131,6 +155,7 @@ def build_voice_synthesizer(settings: Settings | None = None) -> VoiceSynthesize
         model=settings.tts_model,
         voice_name=settings.tts_voice,
         sample_rate=settings.tts_sample_rate,
+        settings=settings,
     )
 
 
@@ -159,6 +184,7 @@ class VoiceGenerator:
                 output_path,
                 duration_seconds=self._scene_duration(script_scene),
             )
+            actual_duration = probe_wav_duration(output_path)
             audio_files.append(
                 SceneAudio(
                     scene_id=script_scene.scene_id,

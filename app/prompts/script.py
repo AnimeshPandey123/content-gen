@@ -22,12 +22,14 @@ def build_script_prompt(
         durations,
         transition_duration_seconds=settings.scene_transition_duration,
     )
+    plan = storyboard_result.storyboard.plan
+    target_duration = plan.target_video_duration_seconds if plan else total_duration
 
     return f"""You are writing a short-form vertical video script from a storyboard.
 
 Document title: {document_title}
 
-The finished video must be at most {settings.max_video_duration_seconds:.0f} seconds.
+Target video duration: {target_duration:.1f} seconds.
 Current storyboard playback budget: {total_duration:.1f} seconds.
 
 Storyboard:
@@ -58,10 +60,15 @@ Rules:
 
 def _format_scene(scene, *, words_per_minute: int) -> str:
     max_words = max(int(scene.duration_seconds * words_per_minute / 60), 1)
+    shots = "\n".join(
+        f"    - Shot {shot.order + 1}: {shot.goal} ({shot.duration_seconds}s, {shot.framing})"
+        for shot in scene.shots
+    )
     return (
         f"- Scene {scene.order + 1}: {scene.goal}\n"
         f"  Duration: {scene.duration_seconds}s\n"
         f"  Max voice words: {max_words}\n"
+        f"  Camera shots:\n{shots}\n"
         f"  Source: {scene.source.section}, page {scene.source.page}, "
         f"paragraph {scene.source.paragraph}"
     )

@@ -13,6 +13,7 @@ from app.render.project import (
     bootstrap_render_project,
     scene_basename,
     screenshot_path,
+    shot_screenshot_path,
     subtitle_path,
 )
 
@@ -60,6 +61,7 @@ def test_scene_basename_uses_scene_number() -> None:
 def test_asset_paths_follow_project_layout(tmp_path: Path) -> None:
     project_dir = tmp_path / "proj"
     assert screenshot_path(project_dir, 1).name == "scene01.png"
+    assert shot_screenshot_path(project_dir, 1, 0).name == "scene01_shot01.png"
     assert audio_path(project_dir, 1).name == "scene01.wav"
     assert subtitle_path(project_dir, 1).name == "scene01.ass"
 

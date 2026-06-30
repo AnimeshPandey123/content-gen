@@ -5,7 +5,7 @@ from app.models.section import Section
 from app.models.storyboard import Storyboard
 from app.prompts.script import build_script_prompt
 
-from tests.conftest import sample_scene
+from tests.conftest import sample_scene, sample_video_plan
 from tests.test_stages import _sample_document
 
 
@@ -28,13 +28,14 @@ def test_build_script_prompt_includes_storyboard_scenes() -> None:
         storyboard=Storyboard(
             document_id=document.id,
             scenes=[sample_scene(goal="Introduce the finding")],
+            plan=sample_video_plan(target_video_duration_seconds=30.0),
         ),
     )
 
     prompt = build_script_prompt(storyboard_result)
 
     assert "Introduce the finding" in prompt
-    assert "30 seconds" in prompt
+    assert "Target video duration: 30.0 seconds" in prompt
     assert "Max voice words" in prompt
     assert '"voice"' in prompt
     assert '"overlay"' in prompt

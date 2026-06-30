@@ -4,8 +4,10 @@ from pathlib import Path
 
 from app.config import Settings, get_settings
 from app.models.render import RenderProject, SceneClip
+from app.render.audio import probe_wav_duration
 from app.render.ffmpeg import FFmpegRenderer
 from app.render.project import clip_path, final_video_path
+from app.services.timeline_builder import TimelineBuilder
 
 
 class VideoAssembler:
@@ -19,26 +21,45 @@ class VideoAssembler:
     ) -> None:
         self._settings = settings or get_settings()
         self._ffmpeg_renderer = ffmpeg_renderer or FFmpegRenderer(settings=self._settings)
+        self._timeline_builder = TimelineBuilder()
 
     def render(self, project: RenderProject) -> RenderProject:
         """Render each scene clip and concatenate them into the final MP4."""
         project_dir = Path(project.project_dir)
         clips_dir = project_dir / "clips"
         clips_dir.mkdir(parents=True, exist_ok=True)
+        storyboard_scenes = {
+            scene.id: scene for scene in project.script_plan.storyboard_result.storyboard.scenes
+        }
 
         scene_clips: list[SceneClip] = []
         for scene in project.scenes:
-            if not scene.screenshot_path or not scene.audio_path or not scene.subtitle_path:
+            if not scene.audio_path or not scene.subtitle_path:
                 raise ValueError(f"Scene {scene.scene_id} is missing required assets")
 
+            image_paths = scene.shot_screenshot_paths or (
+                [scene.screenshot_path] if scene.screenshot_path else []
+            )
+            if not image_paths:
+                raise ValueError(f"Scene {scene.scene_id} is missing screenshot assets")
+
+            storyboard_scene = storyboard_scenes[scene.scene_id]
+            shot_durations = self._timeline_builder.shot_durations(storyboard_scene)
+            if len(shot_durations) != len(image_paths):
+                even_duration = storyboard_scene.duration_seconds / len(image_paths)
+                shot_durations = [even_duration for _ in image_paths]
+
             output_path = clip_path(project_dir, scene.scene_number)
+            audio_duration = scene.audio_duration_seconds
+            if audio_duration is None:
+                audio_duration = probe_wav_duration(Path(scene.audio_path))
             self._ffmpeg_renderer.render_scene(
-                image_path=scene.screenshot_path,
+                image_paths=image_paths,
+                shot_durations=shot_durations,
                 audio_path=scene.audio_path,
                 subtitle_path=scene.subtitle_path,
                 output_path=output_path,
-                duration_seconds=scene.audio_duration_seconds
-                or project.script_plan.script.scenes[scene.scene_number - 1].duration,
+                duration_seconds=audio_duration,
             )
             scene_clips.append(
                 SceneClip(scene_id=scene.scene_id, clip_path=str(output_path.resolve())),

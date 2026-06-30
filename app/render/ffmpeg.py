@@ -2,11 +2,14 @@
 
 import json
 import subprocess
-import textwrap
 from pathlib import Path
 
 from app.config import Settings, get_settings
-from app.render.camera import build_clip_transition_filter, build_video_filter
+from app.render.camera import (
+    build_clip_transition_filter,
+    build_multi_shot_video_filter,
+    build_video_filter,
+)
 
 
 class FFmpegError(Exception):
@@ -22,14 +25,77 @@ class FFmpegRenderer:
     def render_scene(
         self,
         *,
+        image_paths: list[str],
+        shot_durations: list[float],
+        audio_path: str,
+        subtitle_path: str,
+        output_path: Path,
+        duration_seconds: float | None = None,
+    ) -> None:
+        """Render one scene clip from one or more camera shots plus narration."""
+        from app.render.audio import probe_wav_duration
+
+        if not image_paths:
+            raise FFmpegError("At least one screenshot is required to render a scene")
+        if len(image_paths) != len(shot_durations):
+            raise FFmpegError("Each screenshot must have a matching shot duration")
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        audio_duration = duration_seconds or probe_wav_duration(Path(audio_path))
+
+        if len(image_paths) == 1:
+            self._render_single_shot_scene(
+                image_path=image_paths[0],
+                audio_path=audio_path,
+                subtitle_path=subtitle_path,
+                output_path=output_path,
+                duration_seconds=audio_duration,
+            )
+            return
+
+        scaled_durations = self._scale_shot_durations(shot_durations, audio_duration)
+        filter_complex, video_output = build_multi_shot_video_filter(
+            shot_count=len(image_paths),
+            motion=self._settings.camera_motion,
+            width=self._settings.video_width,
+            height=self._settings.video_height,
+            fps=self._settings.video_fps,
+            ass_path=subtitle_path,
+        )
+        args = ["-y"]
+        for image_path, shot_duration in zip(image_paths, scaled_durations, strict=True):
+            args.extend(["-loop", "1", "-t", f"{shot_duration:.3f}", "-i", image_path])
+        audio_input_index = len(image_paths)
+        args.extend(["-i", audio_path])
+        args.extend(
+            [
+                "-filter_complex",
+                filter_complex,
+                "-map",
+                video_output,
+                "-map",
+                f"{audio_input_index}:a",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "ultrafast",
+                "-c:a",
+                "aac",
+                "-shortest",
+                str(output_path),
+            ],
+        )
+        self._run(args)
+
+    def _render_single_shot_scene(
+        self,
+        *,
         image_path: str,
         audio_path: str,
         subtitle_path: str,
         output_path: Path,
         duration_seconds: float,
     ) -> None:
-        """Render one scene clip with subtitles and narration over a static image."""
-        output_path.parent.mkdir(parents=True, exist_ok=True)
         video_filter = build_video_filter(
             motion=self._settings.camera_motion,
             width=self._settings.video_width,
@@ -52,14 +118,24 @@ class FFmpegRenderer:
             "libx264",
             "-preset",
             "ultrafast",
-            "-t",
-            f"{duration_seconds:.3f}",
             "-c:a",
             "aac",
             "-shortest",
             str(output_path),
         ]
         self._run(args)
+
+    def _scale_shot_durations(
+        self,
+        shot_durations: list[float],
+        audio_duration: float,
+    ) -> list[float]:
+        total = sum(shot_durations)
+        if total <= 0:
+            even = audio_duration / len(shot_durations)
+            return [even for _ in shot_durations]
+        scale = audio_duration / total
+        return [duration * scale for duration in shot_durations]
 
     def concat_clips(self, clip_paths: list[Path], output_path: Path) -> None:
         """Concatenate rendered scene clips into the final video."""
@@ -82,6 +158,14 @@ class FFmpegRenderer:
             durations=durations,
             transition_duration=transition_duration,
         )
+        self._concat_with_filter_complex(clip_paths, output_path, filter_complex)
+
+    def _concat_with_filter_complex(
+        self,
+        clip_paths: list[Path],
+        output_path: Path,
+        filter_complex: str,
+    ) -> None:
         args = ["-y"]
         for path in clip_paths:
             args.extend(["-i", str(path)])
@@ -150,7 +234,7 @@ class FFmpegRenderer:
             raise FFmpegError(f"ffprobe not found: {ffprobe}") from exc
 
         if result.returncode != 0:
-            stderr = textwrap.shorten(result.stderr or "ffprobe failed", width=300)
+            stderr = _format_ffmpeg_stderr(result.stderr or "ffprobe failed")
             raise FFmpegError(stderr)
 
         payload = json.loads(result.stdout or "{}")
@@ -178,5 +262,36 @@ class FFmpegRenderer:
             raise FFmpegError(f"FFmpeg not found: {self._settings.ffmpeg_path}") from exc
 
         if result.returncode != 0:
-            stderr = textwrap.shorten(result.stderr or "ffmpeg failed", width=300)
+            stderr = _format_ffmpeg_stderr(result.stderr or "ffmpeg failed")
             raise FFmpegError(stderr)
+
+
+def _format_ffmpeg_stderr(stderr: str, *, max_length: int = 500) -> str:
+    """Return the most useful part of FFmpeg stderr (errors are usually at the end)."""
+    lines = [line.strip() for line in stderr.splitlines() if line.strip()]
+    if not lines:
+        return "ffmpeg failed"
+
+    interesting = [
+        line
+        for line in lines
+        if any(
+            marker in line
+            for marker in (
+                "Error",
+                "error",
+                "Invalid",
+                "failed",
+                "Failed",
+                "No such file",
+                "does not match",
+                "do not match",
+                "Nothing was written",
+                "Conversion failed",
+            )
+        )
+    ]
+    message = "\n".join(interesting[-5:]) if interesting else "\n".join(lines[-8:])
+    if len(message) > max_length:
+        return message[-max_length:]
+    return message

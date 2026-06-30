@@ -14,6 +14,7 @@ from app.services.storyboard_generator import (
     _match_section,
 )
 
+from tests.conftest import sample_planned_shots, sample_video_plan
 from tests.test_stages import _sample_document
 
 
@@ -46,11 +47,13 @@ def _content_plan() -> ContentPlan:
 def test_plan_scenes_returns_llm_output() -> None:
     fake_client = _FakeGeminiClient(
         StoryboardGenerationResponse(
+            plan=sample_video_plan(),
             scenes=[
                 PlannedScene(
                     goal="Introduce the sample",
                     duration_seconds=5.0,
                     source=PlannedSceneSource(section="Page 1", page=1, paragraph=1),
+                    shots=sample_planned_shots(duration=5.0),
                 ),
             ],
         ),
@@ -66,11 +69,13 @@ def test_plan_scenes_returns_llm_output() -> None:
 def test_generate_storyboard_builds_scene_models() -> None:
     fake_client = _FakeGeminiClient(
         StoryboardGenerationResponse(
+            plan=sample_video_plan(),
             scenes=[
                 PlannedScene(
                     goal="Introduce the sample",
                     duration_seconds=5.0,
                     source=PlannedSceneSource(section="Page 1", page=1, paragraph=1),
+                    shots=sample_planned_shots(duration=5.0),
                 ),
             ],
         ),
@@ -88,6 +93,7 @@ def test_generate_storyboard_builds_scene_models() -> None:
     scene = storyboard.scenes[1]
     assert scene.goal == "Introduce the sample"
     assert scene.source.paragraph == 1
+    assert len(scene.shots) >= 1
     assert scene.visual.crop.width > 0
 
 
@@ -124,11 +130,13 @@ def test_build_client_uses_settings_api_key(monkeypatch) -> None:
 
         def generate_model(self, prompt, response_model):
             return StoryboardGenerationResponse(
+                plan=sample_video_plan(),
                 scenes=[
                     PlannedScene(
                         goal="Hook",
                         duration_seconds=5.0,
                         source=PlannedSceneSource(section="Page 1", page=1, paragraph=1),
+                        shots=sample_planned_shots(duration=5.0),
                     ),
                 ],
             )
@@ -145,11 +153,13 @@ def test_build_client_uses_settings_api_key(monkeypatch) -> None:
 def test_generate_storyboard_raises_when_llm_returns_unknown_sections() -> None:
     fake_client = _FakeGeminiClient(
         StoryboardGenerationResponse(
+            plan=sample_video_plan(),
             scenes=[
                 PlannedScene(
                     goal="Hook",
                     duration_seconds=5.0,
                     source=PlannedSceneSource(section="Conclusion", page=1, paragraph=1),
+                    shots=sample_planned_shots(duration=5.0),
                 ),
             ],
         ),
@@ -168,19 +178,36 @@ def test_generate_storyboard_skips_title_page_when_document_has_no_pages() -> No
     scene = sample_scene(id="scene-1", order=0)
     empty_document = plan.document.model_copy(update={"pages": []})
 
-    scenes = generator._with_title_page_scene(empty_document, plan, [scene])
+    scenes = generator._with_title_page_scene(
+        empty_document,
+        plan,
+        [scene],
+        sample_video_plan(),
+    )
 
     assert scenes == [scene]
 
 
 def test_generate_storyboard_skips_invalid_paragraph_index() -> None:
+    from app.models.storyboard_generation import PlannedShot
+
     fake_client = _FakeGeminiClient(
         StoryboardGenerationResponse(
+            plan=sample_video_plan(),
             scenes=[
                 PlannedScene(
                     goal="Hook",
                     duration_seconds=5.0,
                     source=PlannedSceneSource(section="Page 1", page=1, paragraph=99),
+                    shots=[
+                        PlannedShot(
+                            goal="Focus missing paragraph",
+                            duration_seconds=5.0,
+                            page=1,
+                            paragraph=99,
+                            framing="focus",
+                        ),
+                    ],
                 ),
             ],
         ),
@@ -197,17 +224,19 @@ def test_generate_storyboard_fits_duration_budget() -> None:
 
     fake_client = _FakeGeminiClient(
         StoryboardGenerationResponse(
+            plan=sample_video_plan(target_video_duration_seconds=30.0),
             scenes=[
                 PlannedScene(
                     goal=f"Scene {index}",
                     duration_seconds=10.0,
                     source=PlannedSceneSource(section="Page 1", page=1, paragraph=1),
+                    shots=sample_planned_shots(duration=10.0),
                 )
                 for index in range(1, 5)
             ],
         ),
     )
-    settings = Settings(max_video_duration_seconds=30.0, title_page_duration_seconds=4.0)
+    settings = Settings(max_video_duration_seconds=120.0)
     generator = StoryboardGenerator(gemini_client=fake_client, settings=settings)
 
     storyboard = generator.generate_storyboard(_content_plan())
@@ -217,6 +246,50 @@ def test_generate_storyboard_fits_duration_budget() -> None:
         transition_duration_seconds=settings.scene_transition_duration,
     )
     assert total <= 30.0
+    assert storyboard.plan is not None
+    assert storyboard.plan.target_video_duration_seconds == 30.0
+    assert storyboard.timeline is not None
+    assert any(segment.kind == "transition" for segment in storyboard.timeline.segments)
+
+
+def test_cap_planned_output_enforces_safety_ceilings() -> None:
+    from app.config import Settings
+    from app.models.storyboard_generation import PlannedShot
+
+    response = StoryboardGenerationResponse(
+        plan=sample_video_plan(target_video_duration_seconds=90.0),
+        scenes=[
+            PlannedScene(
+                goal=f"Scene {index}",
+                duration_seconds=5.0,
+                source=PlannedSceneSource(section="Page 1", page=1, paragraph=1),
+                shots=[
+                    PlannedShot(
+                        goal=f"Shot {shot}",
+                        duration_seconds=1.0,
+                        page=1,
+                        paragraph=1,
+                        framing="wide",
+                    )
+                    for shot in range(3)
+                ],
+            )
+            for index in range(3)
+        ],
+    )
+    generator = StoryboardGenerator(
+        settings=Settings(
+            max_video_duration_seconds=30.0,
+            max_storyboard_scenes=1,
+            max_shots_per_scene=2,
+        ),
+    )
+
+    scenes, plan = generator._cap_planned_output(response)
+
+    assert len(scenes) == 1
+    assert len(scenes[0].shots) == 2
+    assert plan.target_video_duration_seconds == 30.0
 
 
 def test_match_section_supports_partial_title_match() -> None:

@@ -5,6 +5,14 @@ from typing import Literal
 CameraMotion = Literal["static", "zoom", "pan", "ken_burns", "highlight"]
 
 
+def _scale_to_frame_filter(width: int, height: int) -> str:
+    """Fit the screenshot inside the frame without center-cropping away context."""
+    return (
+        f"scale={width}:{height}:force_original_aspect_ratio=decrease,"
+        f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black"
+    )
+
+
 def build_video_filter(
     *,
     motion: str,
@@ -16,16 +24,62 @@ def build_video_filter(
 ) -> str:
     """Build an FFmpeg -vf filter chain for camera motion and subtitles."""
     frames = max(int(duration_seconds * fps), 1)
-    base = (
-        f"scale={width}:{height}:force_original_aspect_ratio=increase,"
-        f"crop={width}:{height}:(iw-{width})/2:(ih-{height})/2"
-    )
+    base = _scale_to_frame_filter(width, height)
     motion_filter = _motion_filter(motion, width=width, height=height, fps=fps, frames=frames)
     filters = [base, motion_filter]
     if ass_path:
         escaped = ass_path.replace("\\", "/").replace(":", r"\:")
         filters.append(f"ass={escaped}")
     return ",".join(filters)
+
+
+def build_multi_shot_video_filter(
+    *,
+    shot_count: int,
+    motion: str,
+    width: int,
+    height: int,
+    fps: int,
+    ass_path: str | None = None,
+) -> tuple[str, str]:
+    """Build a filter graph that concatenates multiple still shots into one scene."""
+    if shot_count < 1:
+        raise ValueError("At least one shot is required")
+
+    filters: list[str] = []
+    labels: list[str] = []
+    for index in range(shot_count):
+        base = _scale_to_frame_filter(width, height)
+        motion_filter = _motion_filter(
+            motion,
+            width=width,
+            height=height,
+            fps=fps,
+            frames=max(fps, 1),
+        )
+        label = f"v{index}"
+        filters.append(f"[{index}:v]{base},{motion_filter},setsar=1[{label}]")
+        labels.append(f"[{label}]")
+
+    filters.append(f"{''.join(labels)}concat=n={shot_count}:v=1:a=0[vcat]")
+    if ass_path:
+        escaped = ass_path.replace("\\", "/").replace(":", r"\:")
+        filters.append(f"[vcat]ass={escaped}[vout]")
+        return ";".join(filters), "[vout]"
+    return ";".join(filters), "[vcat]"
+
+
+def build_clip_concat_filter(*, clip_count: int) -> str:
+    """Build a filter_complex graph that hard-cuts scene clips on narration boundaries."""
+    if clip_count < 2:
+        raise ValueError("At least two clips are required for concatenation")
+
+    video_inputs = "".join(f"[{index}:v]" for index in range(clip_count))
+    audio_inputs = "".join(f"[{index}:a]" for index in range(clip_count))
+    return (
+        f"{video_inputs}concat=n={clip_count}:v=1:a=0[vout];"
+        f"{audio_inputs}concat=n={clip_count}:v=0:a=1[aout]"
+    )
 
 
 def build_clip_transition_filter(

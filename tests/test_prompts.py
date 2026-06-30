@@ -10,7 +10,6 @@ def test_build_section_selection_prompt_includes_candidates() -> None:
             SectionCandidate(title="Results", content="Accuracy was 95%."),
             SectionCandidate(title="Methods", content="We trained a model."),
         ],
-        limit=5,
         document_title="Sample Paper",
     )
 
@@ -18,3 +17,5 @@ def test_build_section_selection_prompt_includes_candidates() -> None:
     assert "Results" in prompt
     assert "Methods" in prompt
     assert '"importance": 0.95' in prompt
+    assert "Decide how many" in prompt
+    assert "Choose the top" not in prompt

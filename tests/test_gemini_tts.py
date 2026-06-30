@@ -78,6 +78,106 @@ def test_gemini_voice_synthesizer_writes_wav(tmp_path: Path) -> None:
         assert wav_file.getnframes() > 0
 
 
+def test_gemini_voice_synthesizer_fits_long_audio_to_scene_budget(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    pcm = _pcm_bytes(8.0)
+    mock_response = SimpleNamespace(
+        candidates=[
+            SimpleNamespace(
+                content=SimpleNamespace(
+                    parts=[SimpleNamespace(inline_data=SimpleNamespace(data=pcm))],
+                ),
+            ),
+        ],
+    )
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = mock_response
+    fitted: list[float] = []
+
+    def _fake_fit(**kwargs):
+        fitted.append(kwargs["target_seconds"])
+        return 6.0
+
+    monkeypatch.setattr("app.render.voice.fit_audio_to_duration", _fake_fit)
+
+    with patch("google.genai.Client", return_value=mock_client):
+        synthesizer = GeminiVoiceSynthesizer(
+            api_key="test-key",
+            model="gemini-2.5-flash-preview-tts",
+            voice_name="Kore",
+            settings=Settings(_env_file=None, tts_fit_scene_duration=True),
+        )
+        duration = synthesizer.synthesize(
+            "Hello world",
+            tmp_path / "scene01.wav",
+            duration_seconds=6.0,
+        )
+
+    assert fitted == [6.0]
+    assert duration == 6.0
+
+
+def test_gemini_voice_synthesizer_skips_fit_when_disabled(tmp_path: Path) -> None:
+    pcm = _pcm_bytes(8.0)
+    mock_response = SimpleNamespace(
+        candidates=[
+            SimpleNamespace(
+                content=SimpleNamespace(
+                    parts=[SimpleNamespace(inline_data=SimpleNamespace(data=pcm))],
+                ),
+            ),
+        ],
+    )
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = mock_response
+
+    with patch("google.genai.Client", return_value=mock_client):
+        synthesizer = GeminiVoiceSynthesizer(
+            api_key="test-key",
+            model="gemini-2.5-flash-preview-tts",
+            voice_name="Kore",
+            settings=Settings(_env_file=None, tts_fit_scene_duration=False),
+        )
+        duration = synthesizer.synthesize(
+            "Hello world",
+            tmp_path / "scene01.wav",
+            duration_seconds=6.0,
+        )
+
+    assert duration == pytest.approx(8.0, rel=0.01)
+
+
+def test_gemini_voice_synthesizer_skips_fit_without_settings(tmp_path: Path) -> None:
+    pcm = _pcm_bytes(2.0)
+    mock_response = SimpleNamespace(
+        candidates=[
+            SimpleNamespace(
+                content=SimpleNamespace(
+                    parts=[SimpleNamespace(inline_data=SimpleNamespace(data=pcm))],
+                ),
+            ),
+        ],
+    )
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = mock_response
+
+    with patch("google.genai.Client", return_value=mock_client):
+        synthesizer = GeminiVoiceSynthesizer(
+            api_key="test-key",
+            model="gemini-2.5-flash-preview-tts",
+            voice_name="Kore",
+        )
+        duration = synthesizer.synthesize(
+            "Hello world",
+            tmp_path / "scene01.wav",
+            duration_seconds=1.0,
+        )
+
+    assert duration == pytest.approx(2.0, rel=0.01)
+
+
 def test_gemini_voice_synthesizer_raises_when_api_fails(tmp_path: Path) -> None:
     mock_client = MagicMock()
     mock_client.models.generate_content.side_effect = RuntimeError("network error")

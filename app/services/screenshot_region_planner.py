@@ -9,6 +9,7 @@ from app.models.bounding_box import BoundingBox
 from app.models.document import Document
 from app.models.page import Page
 from app.models.screenshot import ScreenshotRegion
+from app.services.figure_detector import FigureDetectionError, FigureDetector
 
 
 class ScreenshotRegionError(Exception):
@@ -28,8 +29,14 @@ class ParagraphRef:
 class ScreenshotRegionPlanner:
     """Map paragraph references to page coordinates for screenshots."""
 
-    def __init__(self, *, settings: Settings | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        settings: Settings | None = None,
+        figure_detector: FigureDetector | None = None,
+    ) -> None:
         self._settings = settings or get_settings()
+        self._figure_detector = figure_detector or FigureDetector()
 
     def iter_paragraphs(self, document: Document) -> Iterator[ParagraphRef]:
         """Yield paragraphs in 1-based reading order across the document."""
@@ -107,23 +114,81 @@ class ScreenshotRegionPlanner:
         paragraph_index: int,
     ) -> tuple[int, BoundingBox]:
         """Return page number and padded crop for a paragraph."""
+        return self._crop_for_paragraph_index(
+            document,
+            paragraph_index,
+            min_height=self._settings.screenshot_focus_min_height,
+        )
+
+    def crop_for_framing(
+        self,
+        document: Document,
+        *,
+        page: int,
+        paragraph: int,
+        framing: str,
+    ) -> tuple[int, BoundingBox]:
+        """Return a crop tuned to the requested camera framing."""
+        if framing == "wide":
+            return page, self.crop_for_page(document, page)
+
+        if framing == "highlight":
+            return self._crop_for_paragraph_index(
+                document,
+                paragraph,
+                expand_factor=self._settings.screenshot_highlight_expand_factor,
+                min_height=self._settings.screenshot_highlight_min_height,
+            )
+
+        return self._crop_for_paragraph_index(
+            document,
+            paragraph,
+            expand_factor=self._settings.screenshot_expand_factor,
+            min_height=self._settings.screenshot_focus_min_height,
+        )
+
+    def _crop_for_paragraph_index(
+        self,
+        document: Document,
+        paragraph_index: int,
+        *,
+        expand_factor: float | None = None,
+        padding: float | None = None,
+        min_height: float | None = None,
+    ) -> tuple[int, BoundingBox]:
         ref = self.get_paragraph(document, paragraph_index)
         bbox = ref.block.bbox
         if bbox is None:
             raise ScreenshotRegionError(
                 f"Paragraph {ref.index} has no bounding box for screenshot planning",
             )
-        return ref.page_number, self._finalize_crop(bbox, ref.page)
+        return ref.page_number, self._finalize_crop(
+            bbox,
+            ref.page,
+            anchor=bbox,
+            expand_factor=expand_factor,
+            padding=padding,
+            min_height=min_height,
+        )
+
+    def crop_for_visual(self, document: Document, label: str) -> tuple[int, BoundingBox]:
+        """Return page number and crop region for a detected figure or table."""
+        try:
+            visual = self._figure_detector.get_visual(document, label)
+        except FigureDetectionError as exc:
+            raise ScreenshotRegionError(str(exc)) from exc
+
+        page = self._get_page(document, visual.page_number)
+        return visual.page_number, self._finalize_figure_crop(visual.bbox, page)
 
     def crop_for_page(self, document: Document, page_number: int) -> BoundingBox:
-        """Return a mobile-friendly crop of an entire PDF page."""
+        """Return the full PDF page so text is not clipped at the margins."""
         page = self._get_page(document, page_number)
-        page_width = page.width or 612.0
-        page_height = page.height or 792.0
-        return self._finalize_crop(
-            BoundingBox(x=0.0, y=0.0, width=page_width, height=page_height),
+        page_width, page_height = self._page_size(
             page,
+            BoundingBox(x=0.0, y=0.0, width=612.0, height=792.0),
         )
+        return BoundingBox(x=0.0, y=0.0, width=page_width, height=page_height)
 
     def region_for_scene(self, document: Document, scene) -> ScreenshotRegion:
         """Return screenshot region derived from a storyboard scene."""
@@ -139,13 +204,33 @@ class ScreenshotRegionPlanner:
                 return page
         raise ScreenshotRegionError(f"Page {page_number} not found in document")
 
-    def _finalize_crop(self, bbox: BoundingBox, page: Page) -> BoundingBox:
-        padded = self._apply_padding(bbox, page)
-        expanded = self._expand_bbox(padded, page)
-        return self._fit_mobile_aspect(expanded, page)
+    def _finalize_crop(
+        self,
+        bbox: BoundingBox,
+        page: Page,
+        *,
+        anchor: BoundingBox | None = None,
+        expand_factor: float | None = None,
+        padding: float | None = None,
+        min_height: float | None = None,
+    ) -> BoundingBox:
+        padded = self._apply_padding(bbox, page, padding=padding)
+        expanded = self._expand_bbox(padded, page, expand_factor=expand_factor)
+        return self._fit_mobile_aspect(
+            expanded,
+            page,
+            anchor=anchor or bbox,
+            min_height=min_height,
+        )
 
-    def _apply_padding(self, bbox: BoundingBox, page: Page) -> BoundingBox:
-        padding = self._settings.screenshot_padding
+    def _apply_padding(
+        self,
+        bbox: BoundingBox,
+        page: Page,
+        *,
+        padding: float | None = None,
+    ) -> BoundingBox:
+        padding = self._settings.screenshot_padding if padding is None else padding
         if padding <= 0:
             return bbox
 
@@ -158,8 +243,14 @@ class ScreenshotRegionPlanner:
         height = max(bottom - y, 1.0)
         return BoundingBox(x=x, y=y, width=width, height=height)
 
-    def _expand_bbox(self, bbox: BoundingBox, page: Page) -> BoundingBox:
-        factor = self._settings.screenshot_expand_factor
+    def _expand_bbox(
+        self,
+        bbox: BoundingBox,
+        page: Page,
+        *,
+        expand_factor: float | None = None,
+    ) -> BoundingBox:
+        factor = self._settings.screenshot_expand_factor if expand_factor is None else expand_factor
         if factor <= 1.0:
             return bbox
 
@@ -176,32 +267,68 @@ class ScreenshotRegionPlanner:
             y = max(0.0, page_height - height)
         return BoundingBox(x=x, y=y, width=width, height=height)
 
-    def _fit_mobile_aspect(self, bbox: BoundingBox, page: Page) -> BoundingBox:
+    def _finalize_figure_crop(self, bbox: BoundingBox, page: Page) -> BoundingBox:
+        padded = self._apply_padding(bbox, page)
+        expanded = self._expand_bbox(
+            padded,
+            page,
+            expand_factor=self._settings.screenshot_highlight_expand_factor,
+        )
+        return self._fit_figure_mobile_aspect(expanded, page, anchor=bbox)
+
+    def _fit_figure_mobile_aspect(
+        self,
+        bbox: BoundingBox,
+        page: Page,
+        *,
+        anchor: BoundingBox,
+    ) -> BoundingBox:
+        """Frame a figure or table in a 9:16 crop centered on the visual."""
         if not self._settings.screenshot_mobile_crop:
             return bbox
 
         page_width, page_height = self._page_size(page, bbox)
-        target_aspect = self._settings.video_width / self._settings.video_height
-        center_x = bbox.x + bbox.width / 2
-        center_y = bbox.y + bbox.height / 2
-        width = bbox.width
-        height = bbox.height
+        target_ratio = 9 / 16
+        center_x = anchor.x + anchor.width / 2
+        center_y = anchor.y + anchor.height / 2
 
-        if width / height > target_aspect:
-            height = width / target_aspect
-        else:
-            width = height * target_aspect
+        width = max(bbox.width, anchor.width * 1.2)
+        height = width / target_ratio
+        if height < bbox.height:
+            height = bbox.height
+            width = height * target_ratio
 
-        if height > page_height:
-            height = page_height
-            width = height * target_aspect
-        if width > page_width:
-            width = page_width
-            height = width / target_aspect
+        width = min(width, page_width)
+        height = min(height, page_height * 0.9)
 
         x = max(0.0, min(center_x - width / 2, page_width - width))
         y = max(0.0, min(center_y - height / 2, page_height - height))
         return BoundingBox(x=x, y=y, width=width, height=height)
+
+    def _fit_mobile_aspect(
+        self,
+        bbox: BoundingBox,
+        page: Page,
+        *,
+        anchor: BoundingBox | None = None,
+        min_height: float | None = None,
+    ) -> BoundingBox:
+        """Frame a vertical reading band at full page width; letterbox to 9:16 in FFmpeg."""
+        if not self._settings.screenshot_mobile_crop:
+            return bbox
+
+        anchor_bbox = anchor or bbox
+        page_width, page_height = self._page_size(page, bbox)
+        width = page_width
+        center_y = anchor_bbox.y + anchor_bbox.height / 2
+
+        floor_height = min_height or 0.0
+        content_height = max(bbox.height, anchor_bbox.height * 5.0, floor_height)
+        max_height = page_height * 0.85
+        height = min(max(content_height, floor_height), max_height)
+
+        y = max(0.0, min(center_y - height / 2, page_height - height))
+        return BoundingBox(x=0.0, y=y, width=width, height=height)
 
     def _page_size(self, page: Page, bbox: BoundingBox) -> tuple[float, float]:
         page_width = page.width or bbox.x + bbox.width

@@ -11,9 +11,10 @@ if TYPE_CHECKING:
 
 
 class SceneScreenshot(BaseModel):
-    """Cropped PNG screenshot for a storyboard scene."""
+    """Cropped PNG screenshot for a storyboard scene shot."""
 
     scene_id: str
+    shot_order: int = Field(default=0, ge=0)
     image_path: str = Field(min_length=1)
 
 
@@ -44,6 +45,7 @@ class SceneAssets(BaseModel):
 
     scene_number: int = Field(ge=1, description="1-based scene number")
     scene_id: str = Field(min_length=1)
+    shot_screenshot_paths: list[str] = Field(default_factory=list)
     screenshot_path: str | None = None
     audio_path: str | None = None
     audio_duration_seconds: float | None = Field(default=None, gt=0)
@@ -61,10 +63,21 @@ class RenderProject(BaseModel):
     video_path: str | None = None
 
     def with_screenshots(self, screenshots: list[SceneScreenshot]) -> RenderProject:
-        paths = {item.scene_id: item.image_path for item in screenshots}
-        return self._update_scenes(
-            lambda scene: scene.model_copy(update={"screenshot_path": paths[scene.scene_id]}),
-        )
+        by_scene: dict[str, list[SceneScreenshot]] = {}
+        for item in screenshots:
+            by_scene.setdefault(item.scene_id, []).append(item)
+
+        def _update(scene: SceneAssets) -> SceneAssets:
+            scene_shots = sorted(by_scene.get(scene.scene_id, []), key=lambda item: item.shot_order)
+            paths = [item.image_path for item in scene_shots]
+            return scene.model_copy(
+                update={
+                    "shot_screenshot_paths": paths,
+                    "screenshot_path": paths[0] if paths else None,
+                },
+            )
+
+        return self._update_scenes(_update)
 
     def with_audio(self, audio_files: list[SceneAudio]) -> RenderProject:
         paths = {item.scene_id: item.audio_path for item in audio_files}

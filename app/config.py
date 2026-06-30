@@ -24,29 +24,29 @@ class Settings(BaseSettings):
         default="gemini-2.0-flash",
         description="Gemini model used for LLM stages",
     )
-    section_selection_limit: int = Field(
-        default=5,
-        ge=1,
-        le=5,
-        description="Maximum number of sections to select for the video",
-    )
-    storyboard_max_scenes: int = Field(
-        default=4,
+    max_sections: int = Field(
+        default=15,
         ge=1,
         le=20,
-        description="Maximum number of content scenes in the generated storyboard",
+        description="Safety ceiling on sections returned by the LLM",
+    )
+    max_storyboard_scenes: int = Field(
+        default=20,
+        ge=1,
+        le=20,
+        description="Safety ceiling on content scenes returned by the LLM",
+    )
+    max_shots_per_scene: int = Field(
+        default=8,
+        ge=1,
+        le=8,
+        description="Safety ceiling on camera shots per scene in the LLM response",
     )
     max_video_duration_seconds: float = Field(
-        default=30.0,
+        default=120.0,
         ge=5.0,
         le=120.0,
-        description="Maximum final video duration in seconds",
-    )
-    min_scene_duration_seconds: float = Field(
-        default=3.0,
-        ge=1.0,
-        le=15.0,
-        description="Minimum duration allowed for any scene",
+        description="Hard safety ceiling when fitting final video duration",
     )
 
     # Paths
@@ -58,19 +58,28 @@ class Settings(BaseSettings):
         description="Padding in PDF points added around screenshot regions",
     )
     screenshot_expand_factor: float = Field(
-        default=2.0,
+        default=3.0,
         ge=1.0,
-        description="Multiplier applied to screenshot width/height for more context",
+        description="Multiplier applied to focus-shot screenshot width/height for more context",
+    )
+    screenshot_highlight_expand_factor: float = Field(
+        default=2.5,
+        ge=1.0,
+        description="Multiplier applied to highlight-shot crops (wider than a tight detail)",
+    )
+    screenshot_focus_min_height: float = Field(
+        default=280.0,
+        ge=48.0,
+        description="Minimum PDF crop height for focus shots (points)",
+    )
+    screenshot_highlight_min_height: float = Field(
+        default=200.0,
+        ge=48.0,
+        description="Minimum PDF crop height for highlight shots (points)",
     )
     screenshot_mobile_crop: bool = Field(
         default=True,
-        description="Fit screenshot crops to the vertical video aspect ratio",
-    )
-    title_page_duration_seconds: float = Field(
-        default=4.0,
-        ge=1.0,
-        le=15.0,
-        description="Duration of the opening title-page scene",
+        description="Use full page width and frame a vertical reading band (9:16 fit happens in FFmpeg)",
     )
 
     # Video rendering
@@ -87,8 +96,8 @@ class Settings(BaseSettings):
         description="Camera motion style: static, zoom, pan, ken_burns, highlight",
     )
     scene_transition: str = Field(
-        default="crossfade",
-        description="Transition between scene clips: cut or crossfade",
+        default="cut",
+        description="Transition between scene clips: cut (synced) or crossfade",
     )
     scene_transition_duration: float = Field(
         default=0.5,
@@ -122,6 +131,16 @@ class Settings(BaseSettings):
         default=24000,
         ge=8000,
         description="Sample rate for Gemini TTS WAV output",
+    )
+    tts_fit_scene_duration: bool = Field(
+        default=True,
+        description="Speed up TTS audio slightly when it exceeds the scene duration budget",
+    )
+    tts_max_tempo: float = Field(
+        default=1.35,
+        ge=1.0,
+        le=2.0,
+        description="Maximum narration speed-up applied when fitting scene duration",
     )
 
     # Workflow

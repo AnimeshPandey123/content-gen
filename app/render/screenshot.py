@@ -7,7 +7,7 @@ import fitz
 from app.config import Settings, get_settings
 from app.models.bounding_box import BoundingBox
 from app.models.render import RenderProject, SceneScreenshot
-from app.render.project import screenshot_path
+from app.render.project import shot_screenshot_path
 
 
 class ScreenshotGeneratorError(Exception):
@@ -28,16 +28,21 @@ class ScreenshotGenerator:
 
         screenshots: list[SceneScreenshot] = []
         for scene in project.script_plan.storyboard_result.storyboard.scenes:
-            image_path = screenshot_path(project_dir, scene.order + 1)
-            self.render_crop(
-                pdf_path=document.source_path,
-                page_number=scene.visual.page,
-                crop=scene.visual.crop,
-                output_path=image_path,
-            )
-            screenshots.append(
-                SceneScreenshot(scene_id=scene.id, image_path=str(image_path.resolve())),
-            )
+            for shot in scene.shots:
+                image_path = shot_screenshot_path(project_dir, scene.order + 1, shot.order)
+                self.render_crop(
+                    pdf_path=document.source_path,
+                    page_number=shot.page,
+                    crop=shot.crop,
+                    output_path=image_path,
+                )
+                screenshots.append(
+                    SceneScreenshot(
+                        scene_id=scene.id,
+                        shot_order=shot.order,
+                        image_path=str(image_path.resolve()),
+                    ),
+                )
 
         return screenshots
 

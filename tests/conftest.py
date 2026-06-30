@@ -6,7 +6,7 @@ import fitz
 import pytest
 from app.config import reset_settings
 from app.models.bounding_box import BoundingBox
-from app.models.scene import Scene, SceneSource, SceneVisual
+from app.models.scene import Scene, SceneShot, SceneSource, SceneVisual
 from app.services.screenshot_region_planner import ScreenshotRegionPlanner
 
 
@@ -45,6 +45,48 @@ def write_semantic_pdf(path: Path) -> Path:
     doc.save(path)
     doc.close()
     return path
+
+
+def sample_planned_shots(
+    *,
+    duration: float = 5.0,
+    page: int = 1,
+    paragraph: int = 1,
+):
+    """Return a typical LLM-planned two-shot sequence for tests."""
+    from app.models.storyboard_generation import PlannedShot
+
+    wide_duration = round(duration * 0.4, 3)
+    focus_duration = round(duration - wide_duration, 3)
+    return [
+        PlannedShot(
+            goal="Show context",
+            duration_seconds=wide_duration,
+            page=page,
+            paragraph=paragraph,
+            framing="wide",
+        ),
+        PlannedShot(
+            goal="Focus on the key detail",
+            duration_seconds=focus_duration,
+            page=page,
+            paragraph=paragraph,
+            framing="focus",
+        ),
+    ]
+
+
+def sample_video_plan(**overrides):
+    """Return a typical LLM video pacing plan for tests."""
+    from app.models.video_plan import VideoPlan
+
+    values = {
+        "target_video_duration_seconds": 30.0,
+        "title_page_duration_seconds": 4.0,
+        "min_scene_duration_seconds": 3.0,
+    }
+    values.update(overrides)
+    return VideoPlan(**values)
 
 
 def sample_scene(**overrides) -> Scene:
@@ -125,6 +167,17 @@ def mock_storyboard_generation(monkeypatch) -> None:
                         page=1,
                         paragraph=1,
                     ),
+                    shots=[
+                        SceneShot(
+                            order=0,
+                            goal="Show the paper title page",
+                            duration_seconds=4.0,
+                            page=1,
+                            paragraph=1,
+                            framing="wide",
+                            crop=title_crop,
+                        ),
+                    ],
                     visual=SceneVisual(page=1, crop=title_crop),
                 ),
                 Scene(
@@ -138,6 +191,17 @@ def mock_storyboard_generation(monkeypatch) -> None:
                         page=page_number,
                         paragraph=paragraph_index,
                     ),
+                    shots=[
+                        SceneShot(
+                            order=0,
+                            goal=f"Introduce {section.title}",
+                            duration_seconds=8.0,
+                            page=page_number,
+                            paragraph=paragraph_index,
+                            framing="focus",
+                            crop=content_crop,
+                        ),
+                    ],
                     visual=SceneVisual(page=page_number, crop=content_crop),
                 ),
             ],
@@ -178,7 +242,7 @@ def mock_render_stages(monkeypatch, tmp_path) -> None:
         audio_path,
         clip_path,
         final_video_path,
-        screenshot_path,
+        shot_screenshot_path,
         subtitle_path,
     )
     from app.render.screenshot import ScreenshotGenerator
@@ -188,11 +252,23 @@ def mock_render_stages(monkeypatch, tmp_path) -> None:
     def _fake_screenshots(self, project):
         project_dir = Path(project.project_dir)
         screenshots: list[SceneScreenshot] = []
-        for scene in project.scenes:
-            path = screenshot_path(project_dir, scene.scene_number)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(b"png")
-            screenshots.append(SceneScreenshot(scene_id=scene.scene_id, image_path=str(path)))
+        for scene_asset in project.scenes:
+            storyboard_scene = next(
+                item
+                for item in project.script_plan.storyboard_result.storyboard.scenes
+                if item.id == scene_asset.scene_id
+            )
+            for shot in storyboard_scene.shots:
+                path = shot_screenshot_path(project_dir, scene_asset.scene_number, shot.order)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b"png")
+                screenshots.append(
+                    SceneScreenshot(
+                        scene_id=scene_asset.scene_id,
+                        shot_order=shot.order,
+                        image_path=str(path),
+                    ),
+                )
         return screenshots
 
     def _fake_voice(self, project):

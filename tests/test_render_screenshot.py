@@ -73,7 +73,7 @@ def test_render_crop_writes_scene01_png(tmp_path: Path) -> None:
     generator = ScreenshotGenerator(settings=Settings(output_dir=tmp_path, screenshot_dpi=150))
     screenshots = generator.produce(project)
 
-    assert screenshots[0].image_path.endswith("scene01.png")
+    assert screenshots[0].image_path.endswith("scene01_shot01.png")
     assert Path(screenshots[0].image_path).exists()
 
 

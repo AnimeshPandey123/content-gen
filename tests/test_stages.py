@@ -29,6 +29,8 @@ from app.services.stages.voice_generation import VoiceGenerationStage
 from app.services.storyboard_generator import StoryboardGenerator
 from app.workflows.stage import Stage
 
+from tests.conftest import sample_planned_shots, sample_video_plan
+
 
 def _sample_document() -> Document:
     return Document(
@@ -64,11 +66,13 @@ def _fake_storyboard_client():
     class _FakeClient:
         def generate_model(self, prompt, response_model):
             return StoryboardGenerationResponse(
+                plan=sample_video_plan(),
                 scenes=[
                     PlannedScene(
                         goal="Introduce the sample",
                         duration_seconds=5.0,
                         source=PlannedSceneSource(section="T", page=1, paragraph=1),
+                        shots=sample_planned_shots(duration=5.0),
                     ),
                 ],
             )
