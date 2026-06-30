@@ -2,6 +2,8 @@
 
 from pydantic import BaseModel, Field
 
+from app.models.blocks import SemanticBlock
+
 
 class Page(BaseModel):
     """Represents one page of a PDF."""
@@ -11,3 +13,7 @@ class Page(BaseModel):
     width: float | None = Field(default=None, ge=0, description="Page width in points")
     height: float | None = Field(default=None, ge=0, description="Page height in points")
     image_path: str | None = Field(default=None, description="Path to rendered page image")
+    blocks: list[SemanticBlock] = Field(
+        default_factory=list,
+        description="Semantically typed content blocks in reading order",
+    )

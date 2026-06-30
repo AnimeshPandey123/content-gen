@@ -9,6 +9,7 @@ from app.services.stages.content_planning import ContentPlanningStage
 from app.services.stages.document_extraction import DocumentExtractionStage
 from app.services.stages.narration_generation import NarrationGenerationStage
 from app.services.stages.screenshot_planning import ScreenshotPlanningStage
+from app.services.stages.semantic_parsing import SemanticParsingStage
 from app.services.stages.storyboard_generation import StoryboardGenerationStage
 from app.services.stages.video_rendering import VideoRenderingStage
 
@@ -17,6 +18,7 @@ __all__ = [
     "ContentPlanningStage",
     "DocumentExtractionStage",
     "NarrationGenerationStage",
+    "SemanticParsingStage",
     "ScreenshotPlanningStage",
     "StoryboardGenerationStage",
     "VideoRenderingStage",
@@ -27,6 +29,7 @@ def build_default_stages() -> list:
     """Return the default ordered list of pipeline stages."""
     return [
         DocumentExtractionStage(),
+        SemanticParsingStage(),
         ContentPlanningStage(),
         StoryboardGenerationStage(),
         ScreenshotPlanningStage(),

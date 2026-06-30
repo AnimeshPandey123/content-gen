@@ -17,6 +17,7 @@ from app.services.stages.content_planning import ContentPlanningStage
 from app.services.stages.document_extraction import DocumentExtractionStage
 from app.services.stages.narration_generation import NarrationGenerationStage
 from app.services.stages.screenshot_planning import ScreenshotPlanningStage
+from app.services.stages.semantic_parsing import SemanticParsingStage
 from app.services.stages.storyboard_generation import StoryboardGenerationStage
 from app.services.stages.video_rendering import VideoRenderingStage
 from app.workflows.stage import Stage
@@ -40,6 +41,7 @@ def _sample_content_plan() -> ContentPlan:
 def test_all_stages_implement_stage_interface() -> None:
     stages = [
         DocumentExtractionStage(),
+        SemanticParsingStage(),
         ContentPlanningStage(),
         StoryboardGenerationStage(),
         ScreenshotPlanningStage(),
@@ -64,6 +66,18 @@ def test_document_extraction_output_type(tmp_path, sample_pdf) -> None:
     assert len(result.pages) == 2
     assert result.raw_text
     assert all(page.image_path for page in result.pages)
+
+
+def test_semantic_parsing_output_type(tmp_path, sample_pdf) -> None:
+    from app.config import Settings
+
+    settings = Settings(output_dir=tmp_path / "output")
+    document = DocumentExtractionStage(settings=settings).run(
+        PipelineInput(pdf_path=str(sample_pdf), project_id="p1"),
+    )
+    result = SemanticParsingStage(settings=settings).run(document)
+    assert isinstance(result, Document)
+    assert all(page.blocks for page in result.pages)
 
 
 def test_content_planning_output_type() -> None:

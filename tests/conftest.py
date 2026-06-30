@@ -28,6 +28,22 @@ def write_sample_pdf(
     return path
 
 
+def write_semantic_pdf(path: Path) -> Path:
+    """Create a PDF with headings, paragraphs, and a caption-like line."""
+    doc = fitz.open()
+    page = doc.new_page()
+    page.insert_text((72, 72), "Introduction", fontsize=18)
+    page.insert_text(
+        (72, 110),
+        "This is the opening paragraph of the document.",
+        fontsize=11,
+    )
+    page.insert_text((72, 150), "Figure 1: Example diagram.", fontsize=10)
+    doc.save(path)
+    doc.close()
+    return path
+
+
 @pytest.fixture
 def sample_pdf(tmp_path: Path) -> Path:
     return write_sample_pdf(
@@ -35,6 +51,11 @@ def sample_pdf(tmp_path: Path) -> Path:
         pages=["Page one content.", "Page two content."],
         title="Sample Paper",
     )
+
+
+@pytest.fixture
+def semantic_pdf(tmp_path: Path) -> Path:
+    return write_semantic_pdf(tmp_path / "semantic.pdf")
 
 
 @pytest.fixture(autouse=True)
