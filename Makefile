@@ -1,4 +1,4 @@
-.PHONY: install lint test
+.PHONY: install lint test test-cov
 
 PYTHON ?= python3
 VENV := .venv
@@ -14,3 +14,6 @@ lint:
 
 test:
 	$(BIN)/pytest
+
+test-cov:
+	$(BIN)/pytest --cov=app --cov-report=term-missing --cov-fail-under=100 tests

@@ -1,6 +1,6 @@
 """Screenshot region targeting model."""
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 
 class ScreenshotRegion(BaseModel):
@@ -12,9 +12,3 @@ class ScreenshotRegion(BaseModel):
     y: float = Field(ge=0)
     width: float = Field(gt=0)
     height: float = Field(gt=0)
-
-    @model_validator(mode="after")
-    def validate_region(self) -> "ScreenshotRegion":
-        if self.width <= 0 or self.height <= 0:
-            raise ValueError("width and height must be positive")
-        return self

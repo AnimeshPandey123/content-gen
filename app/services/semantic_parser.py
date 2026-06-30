@@ -93,13 +93,15 @@ class SemanticParser:
 
         figure_index = 0
         page_dict = page.get_text("dict", flags=fitz.TEXTFLAGS_TEXT)
+        seen_image_xrefs: set[int] = set()
         for block in page_dict.get("blocks", []):
             if block.get("type") != 1:
                 continue
             bbox = BoundingBox.from_rect(tuple(block["bbox"]))
             image_path = None
             xref = block.get("image")
-            if xref:
+            if isinstance(xref, int):
+                seen_image_xrefs.add(xref)
                 image_path = self._save_image(
                     pdf,
                     xref=xref,
@@ -116,6 +118,35 @@ class SemanticParser:
                     block=Figure(id=figure_id, order=0, bbox=bbox, image_path=image_path),
                 )
             )
+
+        for image in page.get_images(full=True):
+            xref = image[0]
+            if xref in seen_image_xrefs:
+                continue
+            for rect in page.get_image_rects(xref):
+                bbox = BoundingBox.from_rect(tuple(rect))
+                image_path = self._save_image(
+                    pdf,
+                    xref=xref,
+                    document_id=document_id,
+                    page_number=page_number,
+                    figure_index=figure_index,
+                )
+                figure_id = self._block_id(document_id, page_number, f"figure-{figure_index}")
+                figure_index += 1
+                seen_image_xrefs.add(xref)
+                candidates.append(
+                    _Candidate(
+                        top=bbox.y,
+                        left=bbox.x,
+                        block=Figure(
+                            id=figure_id,
+                            order=0,
+                            bbox=bbox,
+                            image_path=image_path,
+                        ),
+                    )
+                )
 
         text_index = 0
         for block in page_dict.get("blocks", []):

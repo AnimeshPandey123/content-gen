@@ -59,12 +59,14 @@ def test_text_from_blocks_joins_content() -> None:
         Paragraph(id="p1", order=1, text="We found a signal."),
         Table(id="t1", order=2, rows=[["Metric", "Value"], ["Accuracy", "95%"]]),
         Caption(id="c1", order=3, text="Table 1: Metrics"),
+        Figure(id="f2", order=4, alt_text="Diagram"),
     ]
     text = text_from_blocks(blocks)
     assert "Results" in text
     assert "We found a signal." in text
     assert "Metric | Value" in text
     assert "Table 1: Metrics" in text
+    assert "Diagram" in text
 
 
 def test_blocks_serialize_to_json() -> None:

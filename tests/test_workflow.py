@@ -8,6 +8,7 @@ from app.models.pipeline import PipelineInput, RenderResult
 from app.services import build_default_stages
 from app.workflows import PipelineCoordinator, StageExecutionError
 from app.workflows.stage import Stage
+from pydantic import ValidationError
 
 
 class _FlakyStage(Stage[PipelineInput, PipelineInput]):
@@ -114,3 +115,63 @@ def test_stage_execution_logs_timing(monkeypatch) -> None:
     )
     result = coordinator.execute(PipelineInput(pdf_path="/tmp/x.pdf"))
     assert result.pdf_path == "/tmp/x.pdf"
+
+
+def test_coordinator_exposes_stage_list() -> None:
+    stage = _FlakyStage(failures_before_success=0)
+    coordinator = PipelineCoordinator([stage], settings=Settings(max_retries=0))
+    assert coordinator.stages == [stage]
+
+
+def test_coordinator_retries_with_delay(monkeypatch) -> None:
+    sleeps: list[float] = []
+    monkeypatch.setattr(time, "sleep", lambda seconds: sleeps.append(seconds))
+
+    settings = Settings(max_retries=1, retry_delay_seconds=0.01)
+    stage = _FlakyStage(failures_before_success=1)
+    coordinator = PipelineCoordinator([stage], settings=settings)
+    coordinator.execute(PipelineInput(pdf_path="/tmp/x.pdf"))
+
+    assert sleeps == [0.01]
+
+
+def test_coordinator_input_validation_failure() -> None:
+    class BrokenInput(PipelineInput):
+        def model_dump(self, **kwargs):  # type: ignore[override]
+            return {"pdf_path": 123, "project_id": None}
+
+    coordinator = PipelineCoordinator(
+        [_FlakyStage(failures_before_success=0)],
+        settings=Settings(max_retries=0),
+    )
+
+    with pytest.raises(ValidationError):
+        coordinator.execute(BrokenInput(pdf_path="/tmp/x.pdf"))
+
+
+def test_coordinator_output_validation_failure() -> None:
+    from pydantic import BaseModel
+
+    class BrokenOutput(BaseModel):
+        value: int
+
+        def model_dump(self, **kwargs):  # type: ignore[override]
+            return {"value": "not-an-int"}
+
+    class BrokenStage(Stage[PipelineInput, BrokenOutput]):
+        @property
+        def name(self) -> str:
+            return "broken_output"
+
+        def run(self, input_model: PipelineInput) -> BrokenOutput:
+            return BrokenOutput(value=1)
+
+    coordinator = PipelineCoordinator(
+        [BrokenStage()],
+        settings=Settings(max_retries=0),
+    )
+
+    with pytest.raises(StageExecutionError) as exc_info:
+        coordinator.execute(PipelineInput(pdf_path="/tmp/x.pdf"))
+
+    assert isinstance(exc_info.value.cause, ValidationError)

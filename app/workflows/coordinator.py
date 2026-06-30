@@ -77,7 +77,7 @@ class PipelineCoordinator:
                 log.error(
                     "stage_failure",
                     duration_seconds=round(elapsed, 4),
-                    error=str(exc),
+                    error_message=str(exc),
                     error_type=type(exc).__name__,
                     will_retry=will_retry,
                 )
