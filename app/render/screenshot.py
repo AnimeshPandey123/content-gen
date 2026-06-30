@@ -6,8 +6,8 @@ import fitz
 
 from app.config import Settings, get_settings
 from app.models.bounding_box import BoundingBox
-from app.models.pipeline import ScriptPlan
-from app.models.render import SceneScreenshot
+from app.models.render import RenderProject, SceneScreenshot
+from app.render.project import screenshot_path
 
 
 class ScreenshotGeneratorError(Exception):
@@ -15,20 +15,20 @@ class ScreenshotGeneratorError(Exception):
 
 
 class ScreenshotGenerator:
-    """Render PDF page crops as PNG screenshots for each scene."""
+    """Feature 8: render PDF page crops as reusable PNG assets."""
 
     def __init__(self, *, settings: Settings | None = None) -> None:
         self._settings = settings or get_settings()
 
-    def generate(self, script_plan: ScriptPlan) -> list[SceneScreenshot]:
-        document = script_plan.storyboard_result.content_plan.document
-        output_dir = self._screenshots_dir(script_plan)
-        output_dir.mkdir(parents=True, exist_ok=True)
+    def produce(self, project: RenderProject) -> list[SceneScreenshot]:
+        document = project.script_plan.storyboard_result.content_plan.document
+        project_dir = Path(project.project_dir)
+        screenshots_dir = project_dir / "screenshots"
+        screenshots_dir.mkdir(parents=True, exist_ok=True)
 
         screenshots: list[SceneScreenshot] = []
-        for scene in script_plan.storyboard_result.storyboard.scenes:
-            filename = f"scene_{scene.order + 1:02d}.png"
-            image_path = output_dir / filename
+        for scene in project.script_plan.storyboard_result.storyboard.scenes:
+            image_path = screenshot_path(project_dir, scene.order + 1)
             self.render_crop(
                 pdf_path=document.source_path,
                 page_number=scene.visual.page,
@@ -72,7 +72,3 @@ class ScreenshotGenerator:
             pixmap.save(str(output_path))
         finally:
             pdf.close()
-
-    def _screenshots_dir(self, script_plan: ScriptPlan) -> Path:
-        document_id = script_plan.storyboard_result.content_plan.document.id
-        return self._settings.output_dir / document_id / "screenshots"

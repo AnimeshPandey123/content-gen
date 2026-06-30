@@ -25,7 +25,8 @@ from app.models.pipeline import (
     StoryboardResult,
 )
 from app.models.render import (
-    RenderArtifacts,
+    RenderProject,
+    SceneAssets,
     SceneAudio,
     SceneClip,
     SceneScreenshot,
@@ -37,6 +38,10 @@ from app.models.script import Script, ScriptScene
 from app.models.section import Section
 from app.models.storyboard import Storyboard
 from app.models.video_project import VideoProject
+
+RenderProject.model_rebuild()
+VideoProject.model_rebuild()
+RenderResult.model_rebuild()
 
 __all__ = [
     "BoundingBox",
@@ -50,14 +55,15 @@ __all__ = [
     "Page",
     "Paragraph",
     "PipelineInput",
-    "RenderArtifacts",
+    "RenderProject",
     "RenderResult",
     "Scene",
+    "SceneAssets",
     "SceneAudio",
     "SceneClip",
     "SceneScreenshot",
-    "SceneSubtitle",
     "SceneSource",
+    "SceneSubtitle",
     "SceneVisual",
     "Script",
     "ScriptPlan",

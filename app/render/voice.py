@@ -1,13 +1,13 @@
-"""Generate narration audio files for script scenes."""
+"""Generate narration audio assets for script scenes."""
 
 import struct
 import wave
 from pathlib import Path
 
 from app.config import Settings, get_settings
-from app.models.pipeline import ScriptPlan
-from app.models.render import SceneAudio
+from app.models.render import RenderProject, SceneAudio
 from app.models.script import ScriptScene
+from app.render.project import audio_path
 
 
 class VoiceGeneratorError(Exception):
@@ -40,7 +40,7 @@ class WaveVoiceSynthesizer(VoiceSynthesizer):
 
 
 class VoiceGenerator:
-    """Generate one narration WAV file per script scene."""
+    """Feature 11: generate one narration WAV asset per scene."""
 
     def __init__(
         self,
@@ -51,24 +51,24 @@ class VoiceGenerator:
         self._settings = settings or get_settings()
         self._synthesizer = synthesizer or WaveVoiceSynthesizer()
 
-    def generate(self, script_plan: ScriptPlan) -> list[SceneAudio]:
-        output_dir = self._audio_dir(script_plan)
-        output_dir.mkdir(parents=True, exist_ok=True)
+    def produce(self, project: RenderProject) -> list[SceneAudio]:
+        project_dir = Path(project.project_dir)
+        audio_dir = project_dir / "audio"
+        audio_dir.mkdir(parents=True, exist_ok=True)
 
         audio_files: list[SceneAudio] = []
-        for script_scene in script_plan.script.scenes:
+        for script_scene in project.script_plan.script.scenes:
             duration = self._scene_duration(script_scene)
-            filename = f"scene_{script_scene.scene:02d}.wav"
-            audio_path = output_dir / filename
+            output_path = audio_path(project_dir, script_scene.scene)
             actual_duration = self._synthesizer.synthesize(
                 script_scene.voice,
-                audio_path,
+                output_path,
                 duration_seconds=duration,
             )
             audio_files.append(
                 SceneAudio(
                     scene_id=script_scene.scene_id,
-                    audio_path=str(audio_path.resolve()),
+                    audio_path=str(output_path.resolve()),
                     duration_seconds=actual_duration,
                 ),
             )
@@ -84,7 +84,3 @@ class VoiceGenerator:
     def _scene_duration(self, script_scene: ScriptScene) -> float:
         estimated = self.estimate_duration(script_scene.voice)
         return max(script_scene.duration, estimated)
-
-    def _audio_dir(self, script_plan: ScriptPlan) -> Path:
-        document_id = script_plan.storyboard_result.content_plan.document.id
-        return self._settings.output_dir / document_id / "audio"

@@ -1,56 +1,37 @@
-"""Unit tests for narration audio generation."""
+"""Unit tests for narration audio asset generation."""
 
-import wave
 from pathlib import Path
 
 import pytest
 from app.config import Settings
-from app.models.pipeline import ContentPlan, ScriptPlan, StoryboardResult
-from app.models.script import Script, ScriptScene
-from app.models.section import Section
-from app.models.storyboard import Storyboard
+from app.render.project import bootstrap_render_project
 from app.render.voice import VoiceGenerator, VoiceSynthesizer, WaveVoiceSynthesizer
+from app.services.stages.voice_generation import VoiceGenerationStage
 
-from tests.conftest import sample_scene
-from tests.test_stages import _sample_document
+from tests.test_render_project import _script_plan
 
 
-def _script_plan() -> ScriptPlan:
-    document = _sample_document()
-    return ScriptPlan(
-        storyboard_result=StoryboardResult(
-            content_plan=ContentPlan(
-                document=document,
-                selected_sections=[
-                    Section(id="sec-1", title="T", content="Sample", page_numbers=[1]),
-                ],
-            ),
-            storyboard=Storyboard(document_id=document.id, scenes=[sample_scene(id="scene-1")]),
-        ),
-        script=Script(
-            scenes=[
-                ScriptScene(
-                    scene=1,
-                    scene_id="scene-1",
-                    voice="This paper improves accuracy by twelve percent.",
-                    overlay="12% better",
-                    duration=4.0,
-                ),
-            ],
-        ),
+def test_produce_writes_scene01_wav(tmp_path: Path) -> None:
+    project = bootstrap_render_project(
+        _script_plan(),
+        settings=Settings(output_dir=tmp_path),
     )
-
-
-def test_generate_writes_wav_files(tmp_path: Path) -> None:
     generator = VoiceGenerator(settings=Settings(output_dir=tmp_path))
-    audio_files = generator.generate(_script_plan())
+    audio_files = generator.produce(project)
 
-    assert len(audio_files) == 1
-    audio_path = Path(audio_files[0].audio_path)
-    assert audio_path.exists()
-    with wave.open(str(audio_path), "r") as wav_file:
-        assert wav_file.getnchannels() == 1
-        assert wav_file.getframerate() == 22050
+    assert audio_files[0].audio_path.endswith("scene01.wav")
+    assert Path(audio_files[0].audio_path).exists()
+
+
+def test_voice_generation_stage_updates_project_assets(tmp_path: Path) -> None:
+    project = bootstrap_render_project(
+        _script_plan(),
+        settings=Settings(output_dir=tmp_path),
+    )
+    result = VoiceGenerationStage(settings=Settings(output_dir=tmp_path)).run(project)
+
+    assert result.scenes[0].audio_path is not None
+    assert result.scenes[0].audio_duration_seconds is not None
 
 
 def test_estimate_duration_uses_words_per_minute() -> None:

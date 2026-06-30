@@ -1,4 +1,4 @@
-"""Unit tests for screenshot generation."""
+"""Unit tests for screenshot asset generation."""
 
 from pathlib import Path
 
@@ -10,7 +10,9 @@ from app.models.pipeline import ContentPlan, ScriptPlan, StoryboardResult
 from app.models.scene import Scene, SceneSource, SceneVisual
 from app.models.section import Section
 from app.models.storyboard import Storyboard
+from app.render.project import bootstrap_render_project
 from app.render.screenshot import ScreenshotGenerator, ScreenshotGeneratorError
+from app.services.stages.screenshot_generation import ScreenshotGenerationStage
 
 
 def _script_plan(pdf_path: Path) -> ScriptPlan:
@@ -58,7 +60,7 @@ def _script_plan(pdf_path: Path) -> ScriptPlan:
     )
 
 
-def test_render_crop_writes_png(tmp_path: Path) -> None:
+def test_render_crop_writes_scene01_png(tmp_path: Path) -> None:
     pdf_path = tmp_path / "paper.pdf"
     doc = fitz.open()
     page = doc.new_page()
@@ -66,32 +68,28 @@ def test_render_crop_writes_png(tmp_path: Path) -> None:
     doc.save(pdf_path)
     doc.close()
 
-    output_path = tmp_path / "scene_01.png"
+    script_plan = _script_plan(pdf_path)
+    project = bootstrap_render_project(script_plan, settings=Settings(output_dir=tmp_path))
     generator = ScreenshotGenerator(settings=Settings(output_dir=tmp_path, screenshot_dpi=150))
-    generator.render_crop(
-        pdf_path=str(pdf_path),
-        page_number=1,
-        crop=BoundingBox(x=72, y=72, width=200, height=40),
-        output_path=output_path,
-    )
+    screenshots = generator.produce(project)
 
-    assert output_path.exists()
-    assert output_path.stat().st_size > 0
-
-
-def test_generate_creates_scene_screenshots(tmp_path: Path) -> None:
-    pdf_path = tmp_path / "paper.pdf"
-    doc = fitz.open()
-    page = doc.new_page()
-    page.insert_text((72, 72), "Crop this paragraph.")
-    doc.save(pdf_path)
-    doc.close()
-
-    generator = ScreenshotGenerator(settings=Settings(output_dir=tmp_path, screenshot_dpi=150))
-    screenshots = generator.generate(_script_plan(pdf_path))
-
-    assert len(screenshots) == 1
+    assert screenshots[0].image_path.endswith("scene01.png")
     assert Path(screenshots[0].image_path).exists()
+
+
+def test_screenshot_generation_stage_bootstraps_project(tmp_path: Path) -> None:
+    pdf_path = tmp_path / "paper.pdf"
+    doc = fitz.open()
+    page = doc.new_page()
+    page.insert_text((72, 72), "Crop this paragraph.")
+    doc.save(pdf_path)
+    doc.close()
+
+    stage = ScreenshotGenerationStage(settings=Settings(output_dir=tmp_path, screenshot_dpi=150))
+    project = stage.run(_script_plan(pdf_path))
+
+    assert Path(project.storyboard_path).exists()
+    assert project.scenes[0].screenshot_path is not None
 
 
 def test_render_crop_raises_for_missing_pdf(tmp_path: Path) -> None:

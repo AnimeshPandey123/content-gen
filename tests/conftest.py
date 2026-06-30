@@ -153,44 +153,83 @@ def mock_script_generation(monkeypatch) -> None:
     monkeypatch.setattr(ScriptGenerator, "generate_script", _fake_generate)
 
 
-def mock_render_pipeline(monkeypatch, tmp_path) -> None:
-    """Bypass FFmpeg during integration tests."""
-    from app.models.render import (
-        RenderArtifacts,
-        SceneAudio,
-        SceneClip,
-        SceneScreenshot,
-        SceneSubtitle,
+def mock_render_stages(monkeypatch, tmp_path) -> None:
+    """Bypass FFmpeg and heavy asset generation during integration tests."""
+    from pathlib import Path
+
+    from app.models.render import SceneAudio, SceneScreenshot, SceneSubtitle
+    from app.render.assembler import VideoAssembler
+    from app.render.project import (
+        audio_path,
+        clip_path,
+        final_video_path,
+        screenshot_path,
+        subtitle_path,
     )
-    from app.render.pipeline import RenderPipeline
+    from app.render.screenshot import ScreenshotGenerator
+    from app.render.subtitles import SubtitleGenerator
+    from app.render.voice import VoiceGenerator
 
-    def _fake_run(self, script_plan):
-        document_id = script_plan.storyboard_result.content_plan.document.id
-        project_dir = tmp_path / document_id
-        project_dir.mkdir(parents=True, exist_ok=True)
-        video_path = project_dir / f"{document_id}.mp4"
-        video_path.write_text("video", encoding="utf-8")
-        scene_id = script_plan.script.scenes[0].scene_id
-        return RenderArtifacts(
-            project_dir=str(project_dir),
-            screenshots=[
-                SceneScreenshot(scene_id=scene_id, image_path=str(project_dir / "s.png")),
-            ],
-            audio_files=[
+    def _fake_screenshots(self, project):
+        project_dir = Path(project.project_dir)
+        screenshots: list[SceneScreenshot] = []
+        for scene in project.scenes:
+            path = screenshot_path(project_dir, scene.scene_number)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"png")
+            screenshots.append(SceneScreenshot(scene_id=scene.scene_id, image_path=str(path)))
+        return screenshots
+
+    def _fake_voice(self, project):
+        project_dir = Path(project.project_dir)
+        audio_files: list[SceneAudio] = []
+        for scene_asset in project.scenes:
+            script_scene = next(
+                item
+                for item in project.script_plan.script.scenes
+                if item.scene_id == scene_asset.scene_id
+            )
+            path = audio_path(project_dir, scene_asset.scene_number)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"wav")
+            audio_files.append(
                 SceneAudio(
-                    scene_id=scene_id,
-                    audio_path=str(project_dir / "a.wav"),
-                    duration_seconds=5.0,
+                    scene_id=scene_asset.scene_id,
+                    audio_path=str(path),
+                    duration_seconds=script_scene.duration,
                 ),
-            ],
-            subtitle_files=[
-                SceneSubtitle(scene_id=scene_id, subtitle_path=str(project_dir / "s.ass")),
-            ],
-            scene_clips=[SceneClip(scene_id=scene_id, clip_path=str(project_dir / "c.mp4"))],
-            video_path=str(video_path),
-        )
+            )
+        return audio_files
 
-    monkeypatch.setattr(RenderPipeline, "run", _fake_run)
+    def _fake_subtitles(self, project, audio_files):
+        project_dir = Path(project.project_dir)
+        subtitles: list[SceneSubtitle] = []
+        for scene_asset in project.scenes:
+            path = subtitle_path(project_dir, scene_asset.scene_number)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("ass", encoding="utf-8")
+            subtitles.append(SceneSubtitle(scene_id=scene_asset.scene_id, subtitle_path=str(path)))
+        return subtitles
+
+    def _fake_assemble(self, project):
+        project_dir = Path(project.project_dir)
+        document_id = project.script_plan.storyboard_result.content_plan.document.id
+        clips = []
+        for scene_asset in project.scenes:
+            path = clip_path(project_dir, scene_asset.scene_number)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("clip", encoding="utf-8")
+            from app.models.render import SceneClip
+
+            clips.append(SceneClip(scene_id=scene_asset.scene_id, clip_path=str(path)))
+        video_path = final_video_path(project_dir, document_id)
+        video_path.write_text("video", encoding="utf-8")
+        return project.with_clips(clips).with_video_path(str(video_path))
+
+    monkeypatch.setattr(ScreenshotGenerator, "produce", _fake_screenshots)
+    monkeypatch.setattr(VoiceGenerator, "produce", _fake_voice)
+    monkeypatch.setattr(SubtitleGenerator, "produce", _fake_subtitles)
+    monkeypatch.setattr(VideoAssembler, "render", _fake_assemble)
 
 
 @pytest.fixture(autouse=True)

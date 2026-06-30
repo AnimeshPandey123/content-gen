@@ -1,11 +1,17 @@
 """Final video project aggregate."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from pydantic import BaseModel
 
 from app.models.document import Document
-from app.models.render import RenderArtifacts
 from app.models.script import Script
 from app.models.storyboard import Storyboard
+
+if TYPE_CHECKING:
+    from app.models.render import RenderProject
 
 
 class VideoProject(BaseModel):
@@ -14,5 +20,5 @@ class VideoProject(BaseModel):
     document: Document
     storyboard: Storyboard
     script: Script
-    artifacts: RenderArtifacts | None = None
+    render_project: RenderProject | None = None
     output_path: str | None = None

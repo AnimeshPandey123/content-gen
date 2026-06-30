@@ -1,13 +1,19 @@
 """Pipeline input/output models that connect workflow stages."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from pydantic import BaseModel, Field
 
 from app.models.document import Document
-from app.models.render import RenderArtifacts
 from app.models.script import Script
 from app.models.section import Section
 from app.models.storyboard import Storyboard
-from app.models.video_project import VideoProject
+
+if TYPE_CHECKING:
+    from app.models.render import RenderProject
+    from app.models.video_project import VideoProject
 
 
 class PipelineInput(BaseModel):
@@ -43,5 +49,5 @@ class RenderResult(BaseModel):
 
     project: VideoProject
     video_path: str
-    artifacts: RenderArtifacts
+    render_project: RenderProject
     success: bool = True

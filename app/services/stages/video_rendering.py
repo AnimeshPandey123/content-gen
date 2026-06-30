@@ -1,44 +1,45 @@
-"""Video rendering stage."""
+"""Feature 12: final video assembly stage."""
 
 from app.config import Settings, get_settings
-from app.models.pipeline import RenderResult, ScriptPlan
+from app.models.pipeline import RenderResult
+from app.models.render import RenderProject
 from app.models.video_project import VideoProject
-from app.render.pipeline import RenderPipeline
+from app.render.assembler import VideoAssembler
 from app.workflows.stage import Stage
 
 
-class VideoRenderingStage(Stage[ScriptPlan, RenderResult]):
-    """Generate screenshots, narration, subtitles, and the final MP4."""
+class VideoRenderingStage(Stage[RenderProject, RenderResult]):
+    """Assemble screenshot, audio, and subtitle assets into the final MP4."""
 
     def __init__(
         self,
         *,
         settings: Settings | None = None,
-        render_pipeline: RenderPipeline | None = None,
+        assembler: VideoAssembler | None = None,
     ) -> None:
         self._settings = settings or get_settings()
-        self._render_pipeline = render_pipeline or RenderPipeline(settings=self._settings)
+        self._assembler = assembler or VideoAssembler(settings=self._settings)
 
     @property
     def name(self) -> str:
         return "video_rendering"
 
-    def run(self, input_model: ScriptPlan) -> RenderResult:
-        storyboard_result = input_model.storyboard_result
-        document = storyboard_result.content_plan.document
+    def run(self, input_model: RenderProject) -> RenderResult:
+        project = self._assembler.render(input_model)
+        script_plan = project.script_plan
+        document = script_plan.storyboard_result.content_plan.document
 
-        artifacts = self._render_pipeline.run(input_model)
-        project = VideoProject(
+        video_project = VideoProject(
             document=document,
-            storyboard=storyboard_result.storyboard,
-            script=input_model.script,
-            artifacts=artifacts,
-            output_path=artifacts.video_path,
+            storyboard=script_plan.storyboard_result.storyboard,
+            script=script_plan.script,
+            render_project=project,
+            output_path=project.video_path,
         )
 
         return RenderResult(
-            project=project,
-            video_path=artifacts.video_path,
-            artifacts=artifacts,
+            project=video_project,
+            video_path=project.video_path or "",
+            render_project=project,
             success=True,
         )

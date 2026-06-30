@@ -1,40 +1,41 @@
-"""Generate ASS subtitle files with word-level karaoke timing."""
+"""Generate ASS subtitle assets with word-level karaoke timing."""
 
 from pathlib import Path
 
 from app.config import Settings, get_settings
-from app.models.pipeline import ScriptPlan
-from app.models.render import SceneAudio, SceneSubtitle
+from app.models.render import RenderProject, SceneAudio, SceneSubtitle
 from app.models.script import ScriptScene
+from app.render.project import subtitle_path
 
 
 class SubtitleGenerator:
-    """Build ASS subtitle files for TikTok-style word highlighting."""
+    """Feature 10: build ASS subtitle assets aligned to narration audio."""
 
     def __init__(self, *, settings: Settings | None = None) -> None:
         self._settings = settings or get_settings()
 
-    def generate(
+    def produce(
         self,
-        script_plan: ScriptPlan,
+        project: RenderProject,
         audio_files: list[SceneAudio],
     ) -> list[SceneSubtitle]:
-        output_dir = self._subtitles_dir(script_plan)
-        output_dir.mkdir(parents=True, exist_ok=True)
+        project_dir = Path(project.project_dir)
+        subtitles_dir = project_dir / "subtitles"
+        subtitles_dir.mkdir(parents=True, exist_ok=True)
         duration_by_scene = {audio.scene_id: audio.duration_seconds for audio in audio_files}
 
         subtitles: list[SceneSubtitle] = []
-        for script_scene in script_plan.script.scenes:
+        for script_scene in project.script_plan.script.scenes:
             duration = duration_by_scene.get(script_scene.scene_id, script_scene.duration)
-            subtitle_path = output_dir / f"scene_{script_scene.scene:02d}.ass"
-            subtitle_path.write_text(
+            output_path = subtitle_path(project_dir, script_scene.scene)
+            output_path.write_text(
                 self.build_ass(script_scene, duration_seconds=duration),
                 encoding="utf-8",
             )
             subtitles.append(
                 SceneSubtitle(
                     scene_id=script_scene.scene_id,
-                    subtitle_path=str(subtitle_path.resolve()),
+                    subtitle_path=str(output_path.resolve()),
                 ),
             )
 
@@ -102,7 +103,3 @@ class SubtitleGenerator:
         minutes = int((seconds % 3600) // 60)
         centiseconds = int(round((seconds % 60) * 100))
         return f"{hours}:{minutes:02d}:{centiseconds:02d}.00"
-
-    def _subtitles_dir(self, script_plan: ScriptPlan) -> Path:
-        document_id = script_plan.storyboard_result.content_plan.document.id
-        return self._settings.output_dir / document_id / "subtitles"
