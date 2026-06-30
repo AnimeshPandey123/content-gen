@@ -15,10 +15,12 @@ from app.render.project import (
 from app.render.screenshot import ScreenshotGenerator, ScreenshotGeneratorError
 from app.render.subtitles import SubtitleGenerator
 from app.render.voice import (
+    GeminiVoiceSynthesizer,
     VoiceGenerator,
     VoiceGeneratorError,
     VoiceSynthesizer,
     WaveVoiceSynthesizer,
+    build_voice_synthesizer,
 )
 
 __all__ = [
@@ -29,10 +31,12 @@ __all__ = [
     "ScreenshotGeneratorError",
     "SubtitleGenerator",
     "VideoAssembler",
+    "GeminiVoiceSynthesizer",
     "VoiceGenerator",
     "VoiceGeneratorError",
     "VoiceSynthesizer",
     "WaveVoiceSynthesizer",
+    "build_voice_synthesizer",
     "audio_path",
     "bootstrap_render_project",
     "build_video_filter",

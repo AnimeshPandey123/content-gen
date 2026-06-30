@@ -66,6 +66,10 @@ Copy `.env.example` to `.env` and adjust as needed:
 |----------|---------|-------------|
 | `GEMINI_API_KEY` | — | Google Gemini API key |
 | `GEMINI_MODEL` | `gemini-2.0-flash` | Model for section selection, storyboard, and script |
+| `VOICE_SYNTHESIZER` | `gemini` | Voice backend: `gemini` or `silent` |
+| `TTS_MODEL` | `gemini-2.5-flash-preview-tts` | Gemini TTS model |
+| `TTS_VOICE` | `Kore` | Prebuilt Gemini voice name |
+| `TTS_SAMPLE_RATE` | `24000` | Output WAV sample rate |
 | `SECTION_SELECTION_LIMIT` | `5` | Max sections to include |
 | `STORYBOARD_MAX_SCENES` | `8` | Max scenes in the storyboard |
 | `OUTPUT_DIR` | `output` | Root directory for rendered assets |

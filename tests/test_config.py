@@ -16,6 +16,10 @@ def test_settings_defaults() -> None:
     assert settings.video_width == 1080
     assert settings.video_height == 1920
     assert settings.narration_speed == 1.0
+    assert settings.voice_synthesizer == "gemini"
+    assert settings.tts_model == "gemini-2.5-flash-preview-tts"
+    assert settings.tts_voice == "Kore"
+    assert settings.tts_sample_rate == 24000
     assert settings.max_retries == 3
     assert settings.screenshot_padding == 4.0
 
@@ -29,6 +33,10 @@ def test_settings_from_environment(monkeypatch, tmp_path) -> None:
     monkeypatch.setenv("VIDEO_WIDTH", "720")
     monkeypatch.setenv("VIDEO_HEIGHT", "1280")
     monkeypatch.setenv("NARRATION_SPEED", "1.25")
+    monkeypatch.setenv("VOICE_SYNTHESIZER", "silent")
+    monkeypatch.setenv("TTS_MODEL", "gemini-2.5-flash-preview-tts")
+    monkeypatch.setenv("TTS_VOICE", "Puck")
+    monkeypatch.setenv("TTS_SAMPLE_RATE", "22050")
     monkeypatch.setenv("MAX_RETRIES", "5")
     monkeypatch.setenv("SCREENSHOT_PADDING", "0")
     monkeypatch.setenv("LOG_LEVEL", "DEBUG")
@@ -44,6 +52,9 @@ def test_settings_from_environment(monkeypatch, tmp_path) -> None:
     assert settings.video_width == 720
     assert settings.video_height == 1280
     assert settings.narration_speed == 1.25
+    assert settings.voice_synthesizer == "silent"
+    assert settings.tts_voice == "Puck"
+    assert settings.tts_sample_rate == 22050
     assert settings.max_retries == 5
     assert settings.screenshot_padding == 0.0
     assert settings.log_level == "DEBUG"

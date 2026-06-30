@@ -16,7 +16,9 @@ def test_produce_writes_scene01_wav(tmp_path: Path) -> None:
         _script_plan(),
         settings=Settings(output_dir=tmp_path),
     )
-    generator = VoiceGenerator(settings=Settings(output_dir=tmp_path))
+    generator = VoiceGenerator(
+        settings=Settings(output_dir=tmp_path, voice_synthesizer="silent"),
+    )
     audio_files = generator.produce(project)
 
     assert audio_files[0].audio_path.endswith("scene01.wav")
@@ -28,7 +30,8 @@ def test_voice_generation_stage_updates_project_assets(tmp_path: Path) -> None:
         _script_plan(),
         settings=Settings(output_dir=tmp_path),
     )
-    result = VoiceGenerationStage(settings=Settings(output_dir=tmp_path)).run(project)
+    settings = Settings(output_dir=tmp_path, voice_synthesizer="silent")
+    result = VoiceGenerationStage(settings=settings).run(project)
 
     assert result.scenes[0].audio_path is not None
     assert result.scenes[0].audio_duration_seconds is not None

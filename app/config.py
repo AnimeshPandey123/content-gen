@@ -67,8 +67,25 @@ class Settings(BaseSettings):
         description="Speaking rate used to estimate narration duration",
     )
 
-    # Narration
+    # Narration / TTS
     narration_speed: float = Field(default=1.0, gt=0, description="Playback speed multiplier")
+    voice_synthesizer: str = Field(
+        default="gemini",
+        description="Voice backend: gemini (Gemini TTS) or silent (placeholder WAV)",
+    )
+    tts_model: str = Field(
+        default="gemini-2.5-flash-preview-tts",
+        description="Gemini model for text-to-speech generation",
+    )
+    tts_voice: str = Field(
+        default="Kore",
+        description="Prebuilt Gemini TTS voice name",
+    )
+    tts_sample_rate: int = Field(
+        default=24000,
+        ge=8000,
+        description="Sample rate for Gemini TTS WAV output",
+    )
 
     # Workflow
     max_retries: int = Field(default=3, ge=0)

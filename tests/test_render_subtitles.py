@@ -42,7 +42,9 @@ def test_subtitle_generation_stage_updates_project_assets(tmp_path: Path) -> Non
         _script_plan(),
         settings=Settings(output_dir=tmp_path),
     )
-    voiced = VoiceGenerationStage(settings=Settings(output_dir=tmp_path)).run(project)
+    voiced = VoiceGenerationStage(
+        settings=Settings(output_dir=tmp_path, voice_synthesizer="silent"),
+    ).run(project)
     result = SubtitleGenerationStage(settings=Settings(output_dir=tmp_path)).run(voiced)
 
     assert result.scenes[0].subtitle_path is not None
