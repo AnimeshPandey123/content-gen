@@ -18,8 +18,42 @@ def test_build_ass_includes_karaoke_words() -> None:
     content = generator.build_ass(script_scene, duration_seconds=4.0)
 
     assert "[Script Info]" in content
-    assert "THIS" in content or "VOICE" in content
+    assert "Voice" in content
     assert "\\kf" in content
+    assert content.count("Dialogue:") == 1
+
+
+def test_build_ass_uses_valid_ass_timestamps() -> None:
+    generator = SubtitleGenerator(settings=Settings())
+    script_scene = _render_project().script_plan.script.scenes[0]
+    content = generator.build_ass(script_scene, duration_seconds=4.5)
+
+    assert "0:00:04.50" in content
+    assert "0:00:00.00" in content
+
+
+def test_build_ass_wraps_long_voice_into_multiple_lines() -> None:
+    from app.models.script import ScriptScene
+
+    generator = SubtitleGenerator(settings=Settings())
+    script_scene = ScriptScene(
+        scene=1,
+        scene_id="scene-1",
+        voice="one two three four five six seven eight nine ten",
+        overlay="Overlay",
+        duration=6.0,
+    )
+    content = generator.build_ass(script_scene, duration_seconds=6.0)
+
+    assert r"\N" in content
+    assert content.count("Dialogue:") == 1
+
+
+def test_format_time_handles_subsecond_values() -> None:
+    generator = SubtitleGenerator(settings=Settings())
+
+    assert generator._format_time(1.08) == "0:00:01.08"
+    assert generator._format_time(61.25) == "0:01:01.25"
 
 
 def test_produce_writes_scene01_ass(tmp_path: Path) -> None:
@@ -62,4 +96,20 @@ def test_build_ass_falls_back_to_overlay_when_voice_empty() -> None:
         duration=3.0,
     )
     content = generator.build_ass(script_scene, duration_seconds=3.0)
-    assert "KEY" in content
+    assert "Key" in content
+    assert "Result" in content
+
+
+def test_build_ass_falls_back_to_space_when_no_text() -> None:
+    from app.models.script import ScriptScene
+
+    generator = SubtitleGenerator(settings=Settings())
+    script_scene = ScriptScene(
+        scene=1,
+        scene_id="scene-1",
+        voice=" ",
+        overlay=" ",
+        duration=1.0,
+    )
+    content = generator.build_ass(script_scene, duration_seconds=1.0)
+    assert "Dialogue:" in content
