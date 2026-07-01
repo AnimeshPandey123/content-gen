@@ -5,7 +5,7 @@ from pathlib import Path
 from app.config import Settings
 from app.models.pipeline import ContentPlan, ScriptPlan, StoryboardResult
 from app.models.render import RenderProject
-from app.models.script import Script, ScriptScene
+from app.models.script import Script, ScriptScene, ScriptShot
 from app.models.section import Section
 from app.models.storyboard import Storyboard
 from app.render.project import (
@@ -38,9 +38,9 @@ def _script_plan() -> ScriptPlan:
                 ScriptScene(
                     scene=1,
                     scene_id="scene-1",
-                    voice="Voice",
-                    overlay="Overlay",
-                    duration=5.0,
+                    shots=[
+                        ScriptShot(shot_order=0, voice="Voice", overlay="Overlay"),
+                    ],
                 ),
             ],
         ),

@@ -295,12 +295,16 @@ class VoiceGenerator:
         audio_dir.mkdir(parents=True, exist_ok=True)
 
         audio_files: list[SceneAudio] = []
+        storyboard_scenes = {
+            scene.id: scene for scene in project.script_plan.storyboard_result.storyboard.scenes
+        }
         for script_scene in project.script_plan.script.scenes:
             output_path = audio_path(project_dir, script_scene.scene)
+            storyboard_scene = storyboard_scenes[script_scene.scene_id]
             actual_duration = self._synthesizer.synthesize(
                 script_scene.voice,
                 output_path,
-                duration_seconds=self._scene_duration(script_scene),
+                duration_seconds=storyboard_scene.duration_seconds,
             )
             actual_duration = probe_wav_duration(output_path)
             audio_files.append(
@@ -318,6 +322,3 @@ class VoiceGenerator:
         words = max(len(text.split()), 1)
         minutes = words / self._settings.words_per_minute
         return max(minutes * 60.0 / self._settings.narration_speed, 1.0)
-
-    def _scene_duration(self, script_scene: ScriptScene) -> float:
-        return script_scene.duration

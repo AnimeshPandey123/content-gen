@@ -25,10 +25,15 @@ class SubtitleGenerator:
         subtitles_dir = project_dir / "subtitles"
         subtitles_dir.mkdir(parents=True, exist_ok=True)
         duration_by_scene = {audio.scene_id: audio.duration_seconds for audio in audio_files}
+        storyboard_scenes = {
+            scene.id: scene for scene in project.script_plan.storyboard_result.storyboard.scenes
+        }
 
         subtitles: list[SceneSubtitle] = []
         for script_scene in project.script_plan.script.scenes:
-            duration = duration_by_scene.get(script_scene.scene_id, script_scene.duration)
+            duration = duration_by_scene.get(script_scene.scene_id)
+            if duration is None:
+                duration = storyboard_scenes[script_scene.scene_id].duration_seconds
             output_path = subtitle_path(project_dir, script_scene.scene)
             output_path.write_text(
                 self.build_ass(script_scene, duration_seconds=duration),

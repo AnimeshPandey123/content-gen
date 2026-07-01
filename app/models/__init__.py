@@ -34,7 +34,7 @@ from app.models.render import (
 )
 from app.models.scene import Scene, SceneShot, SceneSource, SceneVisual
 from app.models.screenshot import ScreenshotRegion
-from app.models.script import Script, ScriptScene
+from app.models.script import Script, ScriptScene, ScriptShot
 from app.models.section import Section
 from app.models.storyboard import Storyboard
 from app.models.video_project import VideoProject
@@ -69,6 +69,7 @@ __all__ = [
     "Script",
     "ScriptPlan",
     "ScriptScene",
+    "ScriptShot",
     "SemanticBlock",
     "SemanticCaption",
     "ScreenshotRegion",

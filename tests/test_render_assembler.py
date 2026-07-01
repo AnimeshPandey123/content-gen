@@ -109,7 +109,7 @@ def test_render_splits_shot_durations_when_counts_mismatch(monkeypatch, tmp_path
     from app.models.bounding_box import BoundingBox
     from app.models.pipeline import ContentPlan, ScriptPlan, StoryboardResult
     from app.models.scene import Scene, SceneShot, SceneSource, SceneVisual
-    from app.models.script import Script, ScriptScene
+    from app.models.script import Script, ScriptScene, ScriptShot
     from app.models.section import Section
     from app.models.storyboard import Storyboard
     from tests.test_stages import _sample_document
@@ -160,9 +160,9 @@ def test_render_splits_shot_durations_when_counts_mismatch(monkeypatch, tmp_path
                 ScriptScene(
                     scene=1,
                     scene_id="scene-1",
-                    voice="Voice",
-                    overlay="Overlay",
-                    duration=6.0,
+                    shots=[
+                        ScriptShot(shot_order=0, voice="Voice", overlay="Overlay"),
+                    ],
                 ),
             ],
         ),

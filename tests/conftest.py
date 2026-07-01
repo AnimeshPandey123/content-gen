@@ -257,7 +257,7 @@ def mock_storyboard_generation(monkeypatch) -> None:
 
 def mock_script_generation(monkeypatch) -> None:
     """Bypass Gemini during integration tests."""
-    from app.models.script import Script, ScriptScene
+    from app.models.script import Script, ScriptScene, ScriptShot
     from app.services.script_generator import ScriptGenerator
 
     def _fake_generate(self, storyboard_result):
@@ -266,9 +266,14 @@ def mock_script_generation(monkeypatch) -> None:
                 ScriptScene(
                     scene=scene.order + 1,
                     scene_id=scene.id,
-                    voice=f"Voice for scene {scene.order + 1}",
-                    overlay=scene.goal,
-                    duration=scene.duration_seconds,
+                    shots=[
+                        ScriptShot(
+                            shot_order=shot.order,
+                            voice=f"Voice for scene {scene.order + 1} shot {shot.order + 1}",
+                            overlay=shot.goal[:40] or "Shot",
+                        )
+                        for shot in scene.shots
+                    ],
                 )
                 for scene in storyboard_result.storyboard.scenes
             ],
@@ -320,10 +325,10 @@ def mock_render_stages(monkeypatch, tmp_path) -> None:
         project_dir = Path(project.project_dir)
         audio_files: list[SceneAudio] = []
         for scene_asset in project.scenes:
-            script_scene = next(
+            storyboard_scene = next(
                 item
-                for item in project.script_plan.script.scenes
-                if item.scene_id == scene_asset.scene_id
+                for item in project.script_plan.storyboard_result.storyboard.scenes
+                if item.id == scene_asset.scene_id
             )
             path = audio_path(project_dir, scene_asset.scene_number)
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -332,7 +337,7 @@ def mock_render_stages(monkeypatch, tmp_path) -> None:
                 SceneAudio(
                     scene_id=scene_asset.scene_id,
                     audio_path=str(path),
-                    duration_seconds=script_scene.duration,
+                    duration_seconds=storyboard_scene.duration_seconds,
                 ),
             )
         return audio_files

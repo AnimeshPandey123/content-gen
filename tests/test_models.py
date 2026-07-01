@@ -11,6 +11,7 @@ from app.models import (
     Scene,
     Script,
     ScriptScene,
+    ScriptShot,
     Section,
     Storyboard,
     VideoProject,
@@ -156,9 +157,9 @@ def test_models_serialize_to_json() -> None:
             ScriptScene(
                 scene=1,
                 scene_id="sc-1",
-                voice="Hello world",
-                overlay="Hello",
-                duration=3.0,
+                shots=[
+                    ScriptShot(shot_order=0, voice="Hello world", overlay="Hello"),
+                ],
             ),
         ],
     )

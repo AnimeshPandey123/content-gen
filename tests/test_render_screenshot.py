@@ -19,7 +19,7 @@ def _script_plan(pdf_path: Path) -> ScriptPlan:
     from app.models.document import Document
     from app.models.metadata import DocumentMetadata
     from app.models.page import Page
-    from app.models.script import Script, ScriptScene
+    from app.models.script import Script, ScriptScene, ScriptShot
 
     document = Document(
         id="doc-1",
@@ -51,9 +51,9 @@ def _script_plan(pdf_path: Path) -> ScriptPlan:
                 ScriptScene(
                     scene=1,
                     scene_id="scene-1",
-                    voice="Hello world",
-                    overlay="Hello",
-                    duration=5.0,
+                    shots=[
+                        ScriptShot(shot_order=0, voice="Hello world", overlay="Hello"),
+                    ],
                 ),
             ],
         ),

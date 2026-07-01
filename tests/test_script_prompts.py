@@ -65,5 +65,8 @@ def test_build_script_prompt_includes_storyboard_scenes() -> None:
     assert "Source excerpts" in prompt
     assert "95% accuracy" in prompt
     assert "concrete facts" in prompt
+    assert "shot_order" in prompt
+    assert "Do not include duration" in prompt
+    assert "one script entry per storyboard shot" in prompt
     assert '"voice"' in prompt
     assert '"overlay"' in prompt

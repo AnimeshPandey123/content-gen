@@ -33,15 +33,19 @@ def test_build_ass_uses_valid_ass_timestamps() -> None:
 
 
 def test_build_ass_wraps_long_voice_into_multiple_lines() -> None:
-    from app.models.script import ScriptScene
+    from app.models.script import ScriptScene, ScriptShot
 
     generator = SubtitleGenerator(settings=Settings())
     script_scene = ScriptScene(
         scene=1,
         scene_id="scene-1",
-        voice="one two three four five six seven eight nine ten",
-        overlay="Overlay",
-        duration=6.0,
+        shots=[
+            ScriptShot(
+                shot_order=0,
+                voice="one two three four five six seven eight nine ten",
+                overlay="Overlay",
+            ),
+        ],
     )
     content = generator.build_ass(script_scene, duration_seconds=6.0)
 
@@ -54,6 +58,18 @@ def test_format_time_handles_subsecond_values() -> None:
 
     assert generator._format_time(1.08) == "0:00:01.08"
     assert generator._format_time(61.25) == "0:01:01.25"
+
+
+def test_produce_uses_storyboard_duration_when_audio_missing(tmp_path: Path) -> None:
+    project = bootstrap_render_project(
+        _script_plan(),
+        settings=Settings(output_dir=tmp_path),
+    )
+    generator = SubtitleGenerator(settings=Settings(output_dir=tmp_path))
+    subtitles = generator.produce(project, [])
+
+    content = Path(subtitles[0].subtitle_path).read_text(encoding="utf-8")
+    assert "0:00:04.00" in content
 
 
 def test_produce_writes_scene01_ass(tmp_path: Path) -> None:
@@ -85,15 +101,15 @@ def test_subtitle_generation_stage_updates_project_assets(tmp_path: Path) -> Non
 
 
 def test_build_ass_falls_back_to_overlay_when_voice_empty() -> None:
-    from app.models.script import ScriptScene
+    from app.models.script import ScriptScene, ScriptShot
 
     generator = SubtitleGenerator(settings=Settings())
     script_scene = ScriptScene(
         scene=1,
         scene_id="scene-1",
-        voice=" ",
-        overlay="Key Result",
-        duration=3.0,
+        shots=[
+            ScriptShot(shot_order=0, voice=" ", overlay="Key Result"),
+        ],
     )
     content = generator.build_ass(script_scene, duration_seconds=3.0)
     assert "Key" in content
@@ -101,15 +117,15 @@ def test_build_ass_falls_back_to_overlay_when_voice_empty() -> None:
 
 
 def test_build_ass_falls_back_to_space_when_no_text() -> None:
-    from app.models.script import ScriptScene
+    from app.models.script import ScriptScene, ScriptShot
 
     generator = SubtitleGenerator(settings=Settings())
     script_scene = ScriptScene(
         scene=1,
         scene_id="scene-1",
-        voice=" ",
-        overlay=" ",
-        duration=1.0,
+        shots=[
+            ScriptShot(shot_order=0, voice=" ", overlay=" "),
+        ],
     )
     content = generator.build_ass(script_scene, duration_seconds=1.0)
     assert "Dialogue:" in content

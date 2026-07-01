@@ -3,7 +3,10 @@
 from app.config import Settings, get_settings
 from app.models.pipeline import StoryboardResult
 from app.services.duration_budget import playback_duration
-from app.services.source_context import format_paper_brief, format_scene_source_context
+from app.services.source_context import (
+    format_paper_brief,
+    format_shot_source_context,
+)
 
 
 def build_script_prompt(
@@ -18,8 +21,9 @@ def build_script_prompt(
     scenes = "\n".join(
         _format_scene(
             scene,
+            document=document,
+            sections=sections,
             words_per_minute=settings.words_per_minute,
-            source_context=format_scene_source_context(document, sections, scene),
         )
         for scene in storyboard_result.storyboard.scenes
     )
@@ -51,62 +55,83 @@ Current storyboard playback budget: {total_duration:.1f} seconds.
 Storyboard:
 {scenes}
 
-Write one script entry per storyboard scene.
+Write one script entry per storyboard shot (not per scene).
 Return JSON with this exact shape:
 {{
   "scenes": [
     {{
       "scene": 1,
-      "voice": "This paper proposes a new way to train language models using less data.",
-      "overlay": "Train AI with Less Data",
-      "duration": 6.0
+      "shots": [
+        {{
+          "shot_order": 0,
+          "voice": "Here's the overall Transformer architecture.",
+          "overlay": "Transformer"
+        }},
+        {{
+          "shot_order": 1,
+          "voice": "Multi-head attention links every word in parallel.",
+          "overlay": "Multi-Head Attention"
+        }}
+      ]
     }}
   ]
 }}
 
 Rules:
 - scene numbers must match the storyboard scene numbers exactly.
-- voice must be brief enough to speak naturally within each scene duration.
-- use the max word count shown for each scene as a hard ceiling.
-- overlay should be short, punchy, and readable on a phone screen.
-- duration should match the storyboard target duration for each scene.
-- Do not add extra scenes.
-- The opening scene is the automatic title-page intro: write a hook or teaser, not a dry title readout.
-- The final scene is the automatic closing scene: voice MUST conclude the video with a clear
-  takeaway, significance, or "so what"—do not end on raw results or unfinished technical detail.
-- The closing scene must use nearly the full max word count for its duration and match the same
-  energy, pace, and sentence style as the middle scenes—never a slow epilogue or one-liner.
-- Middle scenes carry the argument; only the final scene should wrap up.
-- Each scene includes Source excerpts below—voice MUST use concrete facts from those excerpts.
+- Each scene must include exactly one script shot per storyboard shot listed for that scene.
+- shot_order must match the storyboard shot order (0-based) exactly.
+- Each shot voice must fit naturally within that shot's duration and max word count.
+- Each shot voice should match what the viewer sees in that shot—do not summarize the whole scene in one line.
+- overlay: 2-5 words, punchy and readable on a phone; tease the insight for that shot only.
+- Do not add extra scenes or shots.
+- Do not include duration fields—timing comes from the storyboard.
+- The opening scene is the automatic title-page intro: write a hook or teaser for shot 0.
+- The final scene is the automatic closing scene: the last shot MUST conclude with a clear
+  takeaway or "so what"—do not end on raw results or unfinished technical detail.
+- Middle scenes carry the argument; only the final scene's last shot should wrap up.
+- Each shot includes Source excerpts—voice MUST use concrete facts from those excerpts when relevant.
 - Prefer mechanism, numbers, and comparisons over vague praise (avoid "novel approach" without specifics).
-- Every middle-scene voice line should teach something non-obvious from the source text.
 
 Tone and style:
 - Open with a hook: a question, bold claim, or surprising fact—never "In this paper" or "The authors".
-- Use active voice and short sentences; one clear idea per scene; must sound natural read aloud.
+- Use active voice and short sentences; must sound natural read aloud.
 - Explain jargon in plain language; prefer specific numbers and comparisons over vague praise.
-- overlay: 2-5 words, punchy and readable on a phone; tease the insight (e.g. "2x Faster Training")
-  not a dry label (e.g. "Model Architecture Section").
 - Avoid academic filler: "we propose", "it is shown that", "in this work", "the following".
 - Virality comes from a genuinely interesting insight told clearly—not hype, caps lock, or empty superlatives.
 """
 
 
-def _format_scene(scene, *, words_per_minute: int, source_context: str) -> str:
-    max_words = max(int(scene.duration_seconds * words_per_minute / 60), 1)
-    shots = "\n".join(
-        f"    - Shot {shot.order + 1}: {shot.goal} ({shot.duration_seconds}s, {shot.framing})"
+def _format_scene(scene, *, document, sections, words_per_minute: int) -> str:
+    role = _scene_role(scene)
+    shot_blocks = "\n".join(
+        _format_shot(
+            scene,
+            shot,
+            document=document,
+            sections=sections,
+            words_per_minute=words_per_minute,
+        )
         for shot in scene.shots
     )
-    role = _scene_role(scene)
     return (
         f"- Scene {scene.order + 1} ({role}): {scene.goal}\n"
         f"  Duration: {scene.duration_seconds}s\n"
-        f"  Max voice words: {max_words}\n"
-        f"  Camera shots:\n{shots}\n"
         f"  Source: {scene.source.section}, page {scene.source.page}, "
         f"paragraph {scene.source.paragraph}\n"
-        f"  Source excerpts:\n{source_context}"
+        f"  Shots:\n{shot_blocks}"
+    )
+
+
+def _format_shot(scene, shot, *, document, sections, words_per_minute: int) -> str:
+    max_words = max(int(shot.duration_seconds * words_per_minute / 60), 1)
+    visual = f', visual="{shot.visual}"' if shot.visual else ""
+    source_context = format_shot_source_context(document, sections, scene, shot)
+    return (
+        f"    - Shot {shot.order + 1} (order={shot.order}): {shot.goal}\n"
+        f"      Duration: {shot.duration_seconds}s | Max voice words: {max_words} | "
+        f"Framing: {shot.framing}{visual}\n"
+        f"      Source excerpts:\n{source_context}"
     )
 
 

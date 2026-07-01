@@ -37,6 +37,44 @@ def find_section(sections: list[Section], title: str) -> Section | None:
     return None
 
 
+def format_shot_source_context(
+    document: Document,
+    sections: list[Section],
+    scene: Scene,
+    shot,
+) -> str:
+    """Build grounded source excerpts for one storyboard shot."""
+    parts: list[str] = []
+    section = find_section(sections, scene.source.section)
+    if section and section.content.strip():
+        preview = section.content.strip()
+        if len(preview) > 1200:
+            preview = preview[:1200] + "..."
+        parts.append(f"Section ({section.title}):\n{preview}")
+
+    planner = ScreenshotRegionPlanner()
+    paragraph_index = shot.paragraph if shot.paragraph else scene.source.paragraph
+    try:
+        paragraph_ref = planner.get_paragraph(document, paragraph_index)
+        parts.append(
+            f"Paragraph {paragraph_index} (page {paragraph_ref.page_number}):\n"
+            f"{paragraph_ref.block.text.strip()}",
+        )
+    except Exception:
+        pass
+
+    if shot.visual:
+        detector = FigureDetector()
+        visual = detector.find_visual(document, shot.visual)
+        if visual is None:
+            parts.append(f"Visual {shot.visual}: (caption not found)")
+        else:
+            caption = (visual.caption or "").strip() or "(no caption)"
+            parts.append(f"{visual.label} (page {visual.page_number}): {caption}")
+
+    return "\n\n".join(parts) if parts else "(no source text available)"
+
+
 def format_scene_source_context(
     document: Document,
     sections: list[Section],

@@ -3,7 +3,7 @@
 from app.agents.gemini_client import GeminiClient, GeminiClientError
 from app.config import Settings, get_settings
 from app.models.pipeline import StoryboardResult
-from app.models.script import Script, ScriptScene
+from app.models.script import Script, ScriptScene, ScriptShot
 from app.models.script_generation import GeneratedScriptScene, ScriptGenerationResponse
 from app.prompts.script import build_script_prompt
 
@@ -13,7 +13,7 @@ class ScriptGenerationError(Exception):
 
 
 class ScriptGenerator:
-    """Generate voice and overlay text for each storyboard scene."""
+    """Generate voice and overlay text for each storyboard shot."""
 
     def __init__(
         self,
@@ -56,24 +56,21 @@ class ScriptGenerator:
         storyboard_result: StoryboardResult,
         generated_scenes: list[GeneratedScriptScene],
     ) -> Script:
-        scene_ids = {scene.order + 1: scene.id for scene in storyboard_result.storyboard.scenes}
-        storyboard_scenes = {
+        storyboard_by_number = {
             scene.order + 1: scene for scene in storyboard_result.storyboard.scenes
         }
         script_scenes: list[ScriptScene] = []
 
         for generated in generated_scenes:
-            scene_id = scene_ids.get(generated.scene)
-            storyboard_scene = storyboard_scenes.get(generated.scene)
-            if scene_id is None or storyboard_scene is None:
+            storyboard_scene = storyboard_by_number.get(generated.scene)
+            if storyboard_scene is None:
                 continue
+            shots = self._build_script_shots(storyboard_scene, generated)
             script_scenes.append(
                 ScriptScene(
                     scene=generated.scene,
-                    scene_id=scene_id,
-                    voice=generated.voice,
-                    overlay=generated.overlay,
-                    duration=storyboard_scene.duration_seconds,
+                    scene_id=storyboard_scene.id,
+                    shots=shots,
                 ),
             )
 
@@ -81,3 +78,29 @@ class ScriptGenerator:
             raise ScriptGenerationError("No script scenes matched the storyboard output")
 
         return Script(scenes=script_scenes)
+
+    def _build_script_shots(self, storyboard_scene, generated: GeneratedScriptScene) -> list[ScriptShot]:
+        expected = len(storyboard_scene.shots)
+        generated_by_order = {shot.shot_order: shot for shot in generated.shots}
+        if len(generated.shots) != expected:
+            raise ScriptGenerationError(
+                f"Scene {generated.scene} returned {len(generated.shots)} script shots; "
+                f"expected {expected}",
+            )
+
+        shots: list[ScriptShot] = []
+        for storyboard_shot in storyboard_scene.shots:
+            script_shot = generated_by_order.get(storyboard_shot.order)
+            if script_shot is None:
+                raise ScriptGenerationError(
+                    f"Scene {generated.scene} is missing script for shot_order "
+                    f"{storyboard_shot.order}",
+                )
+            shots.append(
+                ScriptShot(
+                    shot_order=script_shot.shot_order,
+                    voice=script_shot.voice,
+                    overlay=script_shot.overlay,
+                ),
+            )
+        return shots

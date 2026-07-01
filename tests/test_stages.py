@@ -9,7 +9,11 @@ from app.models.metadata import DocumentMetadata
 from app.models.page import Page
 from app.models.pipeline import ContentPlan, PipelineInput, ScriptPlan, StoryboardResult
 from app.models.render import RenderProject, SceneAssets
-from app.models.script_generation import GeneratedScriptScene, ScriptGenerationResponse
+from app.models.script_generation import (
+    GeneratedScriptScene,
+    GeneratedScriptShot,
+    ScriptGenerationResponse,
+)
 from app.models.section import Section
 from app.models.storyboard_generation import (
     PlannedScene,
@@ -90,9 +94,13 @@ def _fake_script_client():
                 scenes=[
                     GeneratedScriptScene(
                         scene=1,
-                        voice="Here is the sample content.",
-                        overlay="Sample",
-                        duration=5.0,
+                        shots=[
+                            GeneratedScriptShot(
+                                shot_order=0,
+                                voice="Here is the sample content.",
+                                overlay="Sample",
+                            ),
+                        ],
                     ),
                 ],
             )

@@ -9,6 +9,7 @@ from app.services.source_context import (
     find_section,
     format_paper_brief,
     format_scene_source_context,
+    format_shot_source_context,
 )
 
 from tests.conftest import sample_scene
@@ -142,6 +143,54 @@ def test_format_scene_source_context_falls_back_when_nothing_resolves() -> None:
     context = format_scene_source_context(document, [], scene)
 
     assert context == "(no source text available)"
+
+
+def test_format_shot_source_context_includes_visual_caption() -> None:
+    document = _document_with_visuals()
+    sections = [
+        Section(
+            id="sec-1",
+            title="Results",
+            content="See Figure 1.",
+            page_numbers=[1],
+            paragraph_indices=[1],
+        ),
+    ]
+    scene = sample_scene(source={"section": "Results", "page": 1, "paragraph": 1})
+    shot = scene.shots[0].model_copy(update={"visual": "Figure 1"})
+
+    context = format_shot_source_context(document, sections, scene, shot)
+
+    assert "Model architecture" in context
+
+
+def test_format_shot_source_context_truncates_long_sections() -> None:
+    document = _sample_document()
+    sections = [
+        Section(
+            id="sec-1",
+            title="Results",
+            content="x" * 1300,
+            page_numbers=[1],
+            paragraph_indices=[1],
+        ),
+    ]
+    scene = sample_scene(source={"section": "Results", "page": 1, "paragraph": 1})
+
+    context = format_shot_source_context(document, sections, scene, scene.shots[0])
+
+    assert "..." in context
+    assert len(context) < 1400
+
+
+def test_format_shot_source_context_handles_missing_paragraph_and_visual() -> None:
+    document = _sample_document()
+    scene = sample_scene(source={"section": "Missing", "page": 1, "paragraph": 99})
+    shot = scene.shots[0].model_copy(update={"visual": "Figure 99"})
+
+    context = format_shot_source_context(document, [], scene, shot)
+
+    assert "Visual Figure 99: (caption not found)" in context
 
 
 def test_generate_brief_wraps_gemini_errors() -> None:
