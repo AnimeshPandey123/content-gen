@@ -13,5 +13,6 @@ htmlcov/
 venv/
 output/
 .firecrawl/
+pdf/
 *.mp4
 .DS_Store
