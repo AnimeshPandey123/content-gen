@@ -30,8 +30,8 @@ flowchart LR
 
 | Phase | Steps | What happens |
 |-------|-------|--------------|
-| Planning | Extract → Parse → Section selection → Paper brief → Storyboard → Script | PyMuPDF extracts text and layout. Gemini picks sections, synthesizes a structured paper brief, plans scenes and camera shots, then writes grounded narration. |
-| Rendering | Screenshots → Voice → Subtitles → Video assembly | Crops PDF regions per shot, synthesizes speech, burns karaoke captions, and stitches clips with FFmpeg. |
+| Planning | Extract → Parse → Section selection → Paper brief → Storyboard → Script | PyMuPDF extracts text and layout. Gemini picks sections, synthesizes a structured paper brief, plans scenes and camera shots (including optional marker highlights), then writes grounded narration. |
+| Rendering | Screenshots → Voice → Subtitles → Video assembly | Crops PDF regions per shot, bakes marker highlights where flagged, synthesizes speech, burns karaoke captions, and stitches clips with FFmpeg. |
 
 Every rendering step writes files to disk. You can regenerate subtitles without redoing voice, or re-run FFmpeg without repeating the expensive AI stages.
 
@@ -45,12 +45,24 @@ Content scenes are not limited to a single screenshot. Gemini returns a `shots` 
 
 - **visual** — detected figure or table label (e.g. `"Figure 3"`, `"Table 1"`) for diagram/table shots
 - **page**, **paragraph**, and **framing** — for text shots (`wide`, `focus`, or `highlight`)
+- **marker_highlight** — optional; when `true`, a yellow marker is drawn on the paragraph or figure/table bbox during screenshot rendering
 - **duration_seconds** — how long that frame stays on screen
 - **goal** — what the viewer should notice
 
 During semantic parsing, figures and tables are detected with bounding boxes and stable labels. The storyboard prompt lists every detected visual so Gemini can reference `"visual": "Figure 3"` instead of guessing crop coordinates.
 
 The camera planner resolves each shot into a PDF crop region—either from a visual label or from paragraph framing. Shots within a scene are concatenated during FFmpeg assembly, so a scene might open wide on text, cut to a figure, then show a results table—all driven by the LLM plan.
+
+## Marker highlights
+
+When the storyboard LLM sets `marker_highlight: true` on a shot, screenshot generation draws a semi-transparent yellow fill behind the source region before cropping:
+
+- **Text shots** — highlights the paragraph bbox referenced by the shot
+- **Visual shots** — highlights the figure or table bbox
+
+Highlights are baked into each shot PNG (not an FFmpeg overlay), so they stay aligned with the paper content for the shot's full duration. The storyboard prompt instructs Gemini to use this sparingly—only when marking the source helps the viewer follow along.
+
+`framing: "highlight"` controls how tightly the camera crops around a paragraph; `marker_highlight` is separate and draws the on-page marker. Disable highlights globally with `HIGHLIGHT_ENABLED=false`.
 
 ## Timeline
 
@@ -159,8 +171,14 @@ The storyboard LLM returns a `plan` object (`target_video_duration_seconds`, `ti
 | `VIDEO_FPS` | `30` | Output frame rate |
 | `SCREENSHOT_DPI` | `300` | DPI for PDF page crops |
 | `SCREENSHOT_PADDING` | `24` | Extra margin around crop regions (PDF points) |
-| `SCREENSHOT_EXPAND_FACTOR` | `2.0` | Widen crops for more page context |
+| `SCREENSHOT_EXPAND_FACTOR` | `3.0` | Widen focus-shot crops for more page context |
+| `SCREENSHOT_HIGHLIGHT_EXPAND_FACTOR` | `2.5` | Crop expansion for `framing: "highlight"` text shots |
+| `SCREENSHOT_FOCUS_MIN_HEIGHT` | `280` | Minimum crop height for focus shots (PDF points) |
+| `SCREENSHOT_HIGHLIGHT_MIN_HEIGHT` | `200` | Minimum crop height for highlight-framing shots |
 | `SCREENSHOT_MOBILE_CROP` | `true` | Fit crops to 9:16 aspect ratio |
+| `HIGHLIGHT_ENABLED` | `true` | Draw marker highlights on shots flagged in the storyboard |
+| `HIGHLIGHT_OPACITY` | `0.35` | Marker fill opacity baked into screenshots |
+| `HIGHLIGHT_COLOR_R` / `G` / `B` | `1.0` / `0.92` / `0.23` | Marker fill color (0–1 RGB) |
 | `PAGE_IMAGE_DPI` | `150` | DPI for intermediate page renders |
 | `CAMERA_MOTION` | `static` | Per-shot motion: `static`, `zoom`, `pan`, `ken_burns`, `highlight` |
 | `SCENE_TRANSITION` | `cut` | Between-scene transition: `cut` (audio-synced) or `crossfade` |
@@ -184,9 +202,10 @@ The storyboard LLM returns a `plan` object (`target_video_duration_seconds`, `ti
 | Document extraction | PDF path | Structured document with page images |
 | Semantic parsing | Document | Typed blocks (headings, paragraphs, figures) |
 | Content planning | Document | Top sections selected by Gemini |
-| Storyboard generation | Content plan | Scene goals, LLM-planned shots, crops, durations |
+| Paper brief | Content plan | Structured understanding for storyboard and script |
+| Storyboard generation | Content plan | Scene goals, LLM-planned shots, crops, marker flags, durations |
 | Script generation | Storyboard | Voice narration and overlay text |
-| Screenshot generation | Script plan | Cropped PNG per shot |
+| Screenshot generation | Script plan | Cropped PNG per shot (with optional marker highlights) |
 | Voice generation | Render project | WAV narration per scene |
 | Subtitle generation | Render project | ASS karaoke subtitles per scene |
 | Video rendering | Render project | Scene clips and final MP4 |

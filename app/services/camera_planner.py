@@ -79,6 +79,7 @@ class CameraPlanner:
                     visual=visual,
                     framing=framing,
                     crop=crop,
+                    marker_highlight=planned_shot.marker_highlight,
                 ),
             )
 

@@ -32,6 +32,10 @@ class PlannedShot(BaseModel):
         default=None,
         description="Camera framing: wide, focus, or highlight",
     )
+    marker_highlight: bool = Field(
+        default=False,
+        description="Draw a marker highlight on the paragraph or visual bbox during this shot",
+    )
 
     @model_validator(mode="after")
     def _visual_or_framing(self) -> "PlannedShot":

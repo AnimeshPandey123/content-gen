@@ -152,6 +152,30 @@ def test_resolve_shots_uses_llm_planned_shots() -> None:
     assert shots[1].crop.y == 0.0
 
 
+def test_resolve_shots_preserves_marker_highlight_flag() -> None:
+    document = _sample_document()
+    planner = CameraPlanner()
+    planned = PlannedScene(
+        goal="Explain the result",
+        duration_seconds=4.0,
+        source=PlannedSceneSource(section="Page 1", page=1, paragraph=1),
+        shots=[
+            PlannedShot(
+                goal="Call out the claim",
+                duration_seconds=4.0,
+                page=1,
+                paragraph=1,
+                framing="focus",
+                marker_highlight=True,
+            ),
+        ],
+    )
+
+    shots = planner.resolve_shots(planned, document)
+
+    assert shots[0].marker_highlight is True
+
+
 def test_resolve_shots_uses_visual_reference() -> None:
     from tests.test_figure_detector import _document_with_visuals
 

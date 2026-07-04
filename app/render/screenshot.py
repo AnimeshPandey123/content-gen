@@ -8,6 +8,7 @@ from app.config import Settings, get_settings
 from app.models.bounding_box import BoundingBox
 from app.models.render import RenderProject, SceneScreenshot
 from app.render.project import shot_screenshot_path
+from app.services.highlight_resolver import HighlightResolver
 
 
 class ScreenshotGeneratorError(Exception):
@@ -17,8 +18,14 @@ class ScreenshotGeneratorError(Exception):
 class ScreenshotGenerator:
     """Feature 8: render PDF page crops as reusable PNG assets."""
 
-    def __init__(self, *, settings: Settings | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        settings: Settings | None = None,
+        highlight_resolver: HighlightResolver | None = None,
+    ) -> None:
         self._settings = settings or get_settings()
+        self._highlight_resolver = highlight_resolver or HighlightResolver(settings=self._settings)
 
     def produce(self, project: RenderProject) -> list[SceneScreenshot]:
         document = project.script_plan.storyboard_result.content_plan.document
@@ -30,11 +37,13 @@ class ScreenshotGenerator:
         for scene in project.script_plan.storyboard_result.storyboard.scenes:
             for shot in scene.shots:
                 image_path = shot_screenshot_path(project_dir, scene.order + 1, shot.order)
+                highlights = self._highlight_resolver.resolve(document, shot)
                 self.render_crop(
                     pdf_path=document.source_path,
                     page_number=shot.page,
                     crop=shot.crop,
                     output_path=image_path,
+                    highlights=highlights,
                 )
                 screenshots.append(
                     SceneScreenshot(
@@ -53,6 +62,7 @@ class ScreenshotGenerator:
         page_number: int,
         crop: BoundingBox,
         output_path: Path,
+        highlights: list[BoundingBox] | None = None,
     ) -> None:
         """Render a PDF crop region to a PNG at screenshot DPI."""
         path = Path(pdf_path)
@@ -69,6 +79,26 @@ class ScreenshotGenerator:
                 raise ScreenshotGeneratorError(f"Page {page_number} not found in PDF")
 
             page = pdf[page_number - 1]
+            fill_color = (
+                self._settings.highlight_color_r,
+                self._settings.highlight_color_g,
+                self._settings.highlight_color_b,
+            )
+            for highlight in highlights or []:
+                rect = fitz.Rect(
+                    highlight.x,
+                    highlight.y,
+                    highlight.x + highlight.width,
+                    highlight.y + highlight.height,
+                )
+                page.draw_rect(
+                    rect,
+                    color=fill_color,
+                    fill=fill_color,
+                    fill_opacity=self._settings.highlight_opacity,
+                    overlay=False,
+                )
+
             zoom = self._settings.screenshot_dpi / 72.0
             matrix = fitz.Matrix(zoom, zoom)
             clip = fitz.Rect(crop.x, crop.y, crop.x + crop.width, crop.y + crop.height)

@@ -17,6 +17,17 @@ class BoundingBox(BaseModel):
         return cls(x=x0, y=y0, width=x1 - x0, height=y1 - y0)
 
 
+def intersect_bbox(a: BoundingBox, b: BoundingBox) -> BoundingBox | None:
+    """Return the overlap of two boxes, or None when they do not intersect."""
+    x0 = max(a.x, b.x)
+    y0 = max(a.y, b.y)
+    x1 = min(a.x + a.width, b.x + b.width)
+    y1 = min(a.y + a.height, b.y + b.height)
+    if x1 <= x0 or y1 <= y0:
+        return None
+    return BoundingBox(x=x0, y=y0, width=x1 - x0, height=y1 - y0)
+
+
 def merge_crop_for_continuity(
     previous: BoundingBox,
     current: BoundingBox,

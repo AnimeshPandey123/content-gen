@@ -82,6 +82,18 @@ def test_planned_shot_requires_visual_or_framing_fields() -> None:
         )
 
 
+def test_planned_shot_accepts_marker_highlight() -> None:
+    shot = PlannedShot(
+        goal="Call out the key result",
+        duration_seconds=2.0,
+        page=1,
+        paragraph=1,
+        framing="focus",
+        marker_highlight=True,
+    )
+    assert shot.marker_highlight is True
+
+
 def test_storyboard_generation_response_requires_scenes() -> None:
     with pytest.raises(ValidationError):
         StoryboardGenerationResponse(plan=sample_video_plan(), scenes=[])

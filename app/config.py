@@ -81,6 +81,19 @@ class Settings(BaseSettings):
         default=True,
         description="Use full page width and frame a vertical reading band (9:16 fit happens in FFmpeg)",
     )
+    highlight_enabled: bool = Field(
+        default=True,
+        description="Draw marker highlights on shots flagged by the storyboard",
+    )
+    highlight_opacity: float = Field(
+        default=0.35,
+        ge=0.0,
+        le=1.0,
+        description="Opacity of marker highlight fills baked into screenshots",
+    )
+    highlight_color_r: float = Field(default=1.0, ge=0.0, le=1.0)
+    highlight_color_g: float = Field(default=0.92, ge=0.0, le=1.0)
+    highlight_color_b: float = Field(default=0.23, ge=0.0, le=1.0)
 
     # Video rendering
     video_width: int = Field(default=1080, ge=1)

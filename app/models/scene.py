@@ -52,6 +52,10 @@ class SceneShot(BaseModel):
         description="Camera framing: wide, focus, or highlight",
     )
     crop: BoundingBox = Field(description="PDF crop region in page coordinates")
+    marker_highlight: bool = Field(
+        default=False,
+        description="Draw a marker highlight on the paragraph or visual bbox during this shot",
+    )
 
 
 class Scene(BaseModel):

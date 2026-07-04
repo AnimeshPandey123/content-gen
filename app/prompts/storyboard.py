@@ -92,7 +92,8 @@ Return JSON with this exact shape:
         {{
           "goal": "Zoom into the key graph",
           "duration_seconds": 4.0,
-          "visual": "Figure 1"
+          "visual": "Figure 1",
+          "marker_highlight": true
         }}
       ]
     }}
@@ -134,6 +135,11 @@ Rules:
 - framing must be one of: wide, focus, highlight (only when visual is not set).
 - wide = full page width, focus = full page width with a vertical band around the paragraph,
   highlight = a smaller band on the detail.
+- marker_highlight is optional (default false). Set marker_highlight to true only when a shot
+  should draw a yellow marker on the source paragraph or figure/table bbox while narration
+  discusses it. Use sparingly—only on shots where highlighting helps the viewer follow along.
+  For text shots, the marker covers the referenced paragraph. For visual shots, it covers
+  the figure or table region.
 
 Creative direction (storyboard goals and shot goals):
 - The automatic title-page intro scene shows the paper cover—plan content scenes knowing

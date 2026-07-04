@@ -134,3 +134,40 @@ def test_render_crop_raises_for_invalid_page(tmp_path: Path) -> None:
             crop=BoundingBox(x=0, y=0, width=10, height=10),
             output_path=tmp_path / "out.png",
         )
+
+
+def test_render_crop_draws_marker_highlights(tmp_path: Path) -> None:
+    pdf_path = tmp_path / "paper.pdf"
+    doc = fitz.open()
+    page = doc.new_page()
+    page.insert_text((72, 72), "Highlight this paragraph.")
+    doc.save(pdf_path)
+    doc.close()
+
+    generator = ScreenshotGenerator(settings=Settings(output_dir=tmp_path, screenshot_dpi=150))
+    plain_path = tmp_path / "plain.png"
+    highlighted_path = tmp_path / "highlighted.png"
+    crop = BoundingBox(x=0, y=0, width=612, height=200)
+    highlight = BoundingBox(x=70, y=65, width=220, height=20)
+
+    generator.render_crop(
+        pdf_path=str(pdf_path),
+        page_number=1,
+        crop=crop,
+        output_path=plain_path,
+    )
+    generator.render_crop(
+        pdf_path=str(pdf_path),
+        page_number=1,
+        crop=crop,
+        output_path=highlighted_path,
+        highlights=[highlight],
+    )
+
+    plain = fitz.Pixmap(str(plain_path))
+    highlighted = fitz.Pixmap(str(highlighted_path))
+    try:
+        assert plain.samples != highlighted.samples
+    finally:
+        plain = None
+        highlighted = None

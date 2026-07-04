@@ -1,7 +1,23 @@
 """Unit tests for bounding box helpers."""
 
 import pytest
-from app.models.bounding_box import BoundingBox, merge_crop_for_continuity
+from app.models.bounding_box import BoundingBox, intersect_bbox, merge_crop_for_continuity
+
+
+def test_intersect_bbox_returns_overlap() -> None:
+    left = BoundingBox(x=10, y=10, width=50, height=50)
+    right = BoundingBox(x=40, y=40, width=50, height=50)
+
+    overlap = intersect_bbox(left, right)
+
+    assert overlap == BoundingBox(x=40, y=40, width=20, height=20)
+
+
+def test_intersect_bbox_returns_none_when_disjoint() -> None:
+    left = BoundingBox(x=0, y=0, width=10, height=10)
+    right = BoundingBox(x=20, y=20, width=10, height=10)
+
+    assert intersect_bbox(left, right) is None
 
 
 def test_merge_crop_for_continuity_expands_tall_follow_up_shot_to_page_top() -> None:

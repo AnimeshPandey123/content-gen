@@ -46,6 +46,8 @@ def test_build_storyboard_prompt_lets_llm_decide_structure() -> None:
     assert "at most one" in prompt
     assert "Creative direction" in prompt
     assert "Return at most" not in prompt
+    assert "marker_highlight" in prompt
+    assert "Use sparingly" in prompt
 
 
 def test_build_storyboard_prompt_includes_paper_brief_when_present() -> None:

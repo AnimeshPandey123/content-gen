@@ -34,6 +34,9 @@ def test_settings_defaults() -> None:
     assert settings.screenshot_focus_min_height == 280.0
     assert settings.screenshot_highlight_min_height == 200.0
     assert settings.screenshot_mobile_crop is True
+    assert settings.highlight_enabled is True
+    assert settings.highlight_opacity == 0.35
+    assert settings.highlight_color_r == 1.0
 
 
 def test_settings_from_environment(monkeypatch, tmp_path) -> None:
