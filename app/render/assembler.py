@@ -1,5 +1,6 @@
 """Assemble scene clips and the final video from rendered assets."""
 
+import time
 from pathlib import Path
 
 from app.config import Settings, get_settings
@@ -8,6 +9,10 @@ from app.render.audio import probe_wav_duration
 from app.render.ffmpeg import FFmpegRenderer
 from app.render.project import clip_path, final_video_path
 from app.services.timeline_builder import TimelineBuilder
+from app.utils.logging import get_logger
+from app.utils.progress import TaskProgress
+
+logger = get_logger(__name__)
 
 
 class VideoAssembler:
@@ -33,7 +38,9 @@ class VideoAssembler:
         }
 
         scene_clips: list[SceneClip] = []
-        for scene in project.scenes:
+        scene_total = len(project.scenes)
+        progress = TaskProgress("video_rendering", scene_total + 1)
+        for index, scene in enumerate(project.scenes, start=1):
             if not scene.audio_path or not scene.subtitle_path:
                 raise ValueError(f"Scene {scene.scene_id} is missing required assets")
 
@@ -53,6 +60,15 @@ class VideoAssembler:
             audio_duration = scene.audio_duration_seconds
             if audio_duration is None:
                 audio_duration = probe_wav_duration(Path(scene.audio_path))
+
+            log = logger.bind(
+                scene_number=scene.scene_number,
+                scene_index=index,
+                scene_total=scene_total,
+                shot_count=len(image_paths),
+            )
+            log.info("render_scene_start")
+            started = time.perf_counter()
             self._ffmpeg_renderer.render_scene(
                 image_paths=image_paths,
                 shot_durations=shot_durations,
@@ -61,6 +77,11 @@ class VideoAssembler:
                 output_path=output_path,
                 duration_seconds=audio_duration,
             )
+            log.info(
+                "render_scene_finish",
+                duration_seconds=round(time.perf_counter() - started, 2),
+            )
+            progress.step(message=f"scene {scene.scene_number:02d}")
             scene_clips.append(
                 SceneClip(scene_id=scene.scene_id, clip_path=str(output_path.resolve())),
             )
@@ -69,9 +90,17 @@ class VideoAssembler:
             project_dir,
             project.script_plan.storyboard_result.content_plan.document.id,
         )
+        logger.info("concat_clips_start", clip_count=len(scene_clips))
+        started = time.perf_counter()
         self._ffmpeg_renderer.concat_clips(
             [Path(item.clip_path) for item in scene_clips],
             video_path,
         )
+        logger.info(
+            "concat_clips_finish",
+            duration_seconds=round(time.perf_counter() - started, 2),
+        )
+        progress.step(message="concat")
+        progress.finish()
 
         return project.with_clips(scene_clips).with_video_path(str(video_path.resolve()))

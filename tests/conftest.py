@@ -98,10 +98,15 @@ def sample_brief_response():
         problem="Training large models is expensive.",
         key_insight="A new attention pattern cuts compute while keeping accuracy.",
         mechanism="Queries attend to a sparse subset of keys instead of all tokens.",
+        intuition=(
+            "Like skimming a document by only reading the headings that matter, "
+            "instead of every word on the page."
+        ),
         evidence=[
             {
                 "claim": "Matches baseline accuracy",
                 "detail": "Within 0.2 BLEU of the full model on WMT14",
+                "meaning": "Sparse attention keeps quality while cutting compute roughly in half",
                 "source_section": "Results",
             },
         ],
@@ -148,10 +153,12 @@ def mock_paper_brief(monkeypatch) -> None:
             problem="The paper addresses a hard problem.",
             key_insight="A clever shortcut changes the tradeoff.",
             mechanism="It reuses intermediate representations across layers.",
+            intuition="Like reusing cached API responses instead of fetching everything fresh.",
             evidence=[
                 {
                     "claim": "Strong result",
                     "detail": "Matches prior work with half the compute",
+                    "meaning": "Same quality for half the training cost",
                     "source_section": content_plan.selected_sections[0].title,
                 },
             ],

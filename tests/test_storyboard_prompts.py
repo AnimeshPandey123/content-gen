@@ -40,8 +40,11 @@ def test_build_storyboard_prompt_lets_llm_decide_structure() -> None:
     assert "stronger storytellers" in prompt
     assert "ready to use" in prompt
     assert "Decide how many content scenes" in prompt
+    assert "between 60 and 120 seconds" in prompt
+    assert "tech-literate" in prompt.lower()
+    assert "What intuition will the viewer have" in prompt
+    assert "at most one" in prompt
     assert "Creative direction" in prompt
-    assert "shareable" in prompt
     assert "Return at most" not in prompt
 
 
@@ -67,7 +70,7 @@ def test_build_storyboard_prompt_includes_paper_brief_when_present() -> None:
 
     assert "Paper brief" in prompt
     assert brief.key_insight in prompt
-    assert "mechanism and evidence" in prompt
+    assert "reflect its mechanism" in prompt
 
 
 def test_format_visual_catalog_lists_detected_visuals() -> None:

@@ -29,3 +29,8 @@ def test_build_paper_brief_prompt_includes_full_section_text() -> None:
     assert "95% on ImageNet" in prompt
     assert '"mechanism"' in prompt
     assert "Do not invent numbers" in prompt
+    assert "4–8 of the strongest" in prompt
+    assert "headline number" in prompt
+    assert "tech-literate" in prompt.lower()
+    assert '"intuition"' in prompt
+    assert '"meaning"' in prompt

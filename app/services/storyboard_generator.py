@@ -75,6 +75,10 @@ class StoryboardGenerator:
                     response.plan.target_video_duration_seconds,
                     self._settings.max_video_duration_seconds,
                 ),
+                "closing_scene_duration_seconds": max(
+                    response.plan.closing_scene_duration_seconds,
+                    5.0,
+                ),
             },
         )
         scenes: list[PlannedScene] = []

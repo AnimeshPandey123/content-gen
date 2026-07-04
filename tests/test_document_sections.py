@@ -65,7 +65,49 @@ def test_extract_section_candidates_joins_multiple_paragraphs() -> None:
     assert candidates[0].content == "First paragraph.\n\nSecond paragraph."
 
 
-def test_extract_section_candidates_skips_non_paragraph_blocks() -> None:
+def test_extract_section_candidates_includes_captions_and_tables() -> None:
+    from app.models.blocks import Caption, Table
+
+    document = Document(
+        id="doc-1",
+        source_path="/tmp/paper.pdf",
+        title="Sample Paper",
+        metadata=DocumentMetadata(page_count=1),
+        pages=[
+            Page(
+                page_number=1,
+                width=612,
+                height=792,
+                blocks=[
+                    Heading(id="h1", order=0, text="Results", level=1),
+                    Paragraph(id="p1", order=1, text="Key finding."),
+                    Caption(id="c1", order=2, text="Figure 1: Accuracy over epochs."),
+                    Table(
+                        id="t1",
+                        order=3,
+                        rows=[["Model", "AP"], ["YOLO", "63.4"], ["Fast R-CNN", "70.0"]],
+                    ),
+                    Paragraph(id="p2", order=4, text="As shown above."),
+                ],
+            ),
+        ],
+    )
+    candidates = extract_section_candidates(document)
+    assert "Figure 1: Accuracy over epochs." in candidates[0].content
+    assert "[Table]" in candidates[0].content
+    assert "YOLO | 63.4" in candidates[0].content
+    assert candidates[0].content == (
+        "Key finding.\n\n"
+        "Figure 1: Accuracy over epochs.\n\n"
+        "[Table]\n"
+        "Model | AP\n"
+        "YOLO | 63.4\n"
+        "Fast R-CNN | 70.0\n\n"
+        "As shown above."
+    )
+
+
+def test_extract_section_candidates_skips_figure_blocks() -> None:
     document = Document(
         id="doc-1",
         source_path="/tmp/paper.pdf",

@@ -294,7 +294,10 @@ def test_cap_planned_output_enforces_safety_ceilings() -> None:
     from app.models.storyboard_generation import PlannedShot
 
     response = StoryboardGenerationResponse(
-        plan=sample_video_plan(target_video_duration_seconds=90.0),
+        plan=sample_video_plan(
+            target_video_duration_seconds=90.0,
+            closing_scene_duration_seconds=3.0,
+        ),
         scenes=[
             PlannedScene(
                 goal=f"Scene {index}",
@@ -327,6 +330,7 @@ def test_cap_planned_output_enforces_safety_ceilings() -> None:
     assert len(scenes) == 1
     assert len(scenes[0].shots) == 2
     assert plan.target_video_duration_seconds == 30.0
+    assert plan.closing_scene_duration_seconds == 5.0
 
 
 def test_match_section_supports_partial_title_match() -> None:

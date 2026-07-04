@@ -3,8 +3,13 @@
 from app.models.pipeline import ContentPlan
 from app.models.section import Section
 from app.services.figure_detector import FigureDetector
-from app.services.source_context import format_paper_brief
 from app.services.screenshot_region_planner import ScreenshotRegionPlanner
+from app.services.source_context import format_paper_brief
+
+_AUDIENCE = (
+    "Tech-literate viewers—software engineers, developers, and data scientists—"
+    "who understand systems and APIs but do not read ML papers."
+)
 
 
 def build_storyboard_prompt(content_plan: ContentPlan) -> str:
@@ -16,7 +21,7 @@ def build_storyboard_prompt(content_plan: ContentPlan) -> str:
     )
     paragraphs = (
         "\n".join(
-            f"- Paragraph {ref.index} (page {ref.page_number}): {ref.block.text[:300]}"
+            f"- Paragraph {ref.index} (page {ref.page_number}): {ref.block.text[:500]}"
             for ref in ScreenshotRegionPlanner().iter_paragraphs(document)
         )
         or "- No paragraphs available"
@@ -30,8 +35,10 @@ Paper brief (use this to plan a deep narrative—not surface summaries):
 """
 
     return f"""You are planning a short-form vertical video storyboard from a document.
-The video should feel informative, visually appealing, and shareable—like a great science
-explainer on TikTok, Reels, or Shorts. Stay credible: no clickbait, no invented claims.
+Audience: {_AUDIENCE}
+
+The video should teach the paper's core idea clearly—like a great science explainer on
+TikTok, Reels, or Shorts. Stay credible: no clickbait, no invented claims.
 
 Document title: {document.title or "Untitled"}
 {brief_block}
@@ -60,15 +67,15 @@ Plan structure only. Do not write voiceover or overlay text yet.
 Return JSON with this exact shape:
 {{
   "plan": {{
-    "target_video_duration_seconds": 30.0,
-    "title_page_duration_seconds": 4.0,
-    "closing_scene_duration_seconds": 4.0,
-    "min_scene_duration_seconds": 3.0
+    "target_video_duration_seconds": 90.0,
+    "title_page_duration_seconds": 5.0,
+    "closing_scene_duration_seconds": 6.0,
+    "min_scene_duration_seconds": 4.0
   }},
   "scenes": [
     {{
       "goal": "Explain the main result",
-      "duration_seconds": 6.0,
+      "duration_seconds": 8.0,
       "source": {{
         "section": "Introduction",
         "page": 1,
@@ -77,14 +84,14 @@ Return JSON with this exact shape:
       "shots": [
         {{
           "goal": "Show the full figure",
-          "duration_seconds": 2.0,
+          "duration_seconds": 4.0,
           "page": 1,
           "paragraph": 1,
           "framing": "wide"
         }},
         {{
           "goal": "Zoom into the key graph",
-          "duration_seconds": 2.5,
+          "duration_seconds": 4.0,
           "visual": "Figure 1"
         }}
       ]
@@ -94,13 +101,18 @@ Return JSON with this exact shape:
 
 Rules:
 - plan.target_video_duration_seconds is the total runtime including the title and closing scenes.
-- plan.title_page_duration_seconds controls the automatic opening title-page scene.
-- plan.closing_scene_duration_seconds controls the automatic closing takeaway scene.
-- plan.min_scene_duration_seconds is the shortest scene you are willing to use.
+- Choose plan.target_video_duration_seconds between 60 and 120 seconds based on how much strong
+  evidence the paper brief contains—dense papers with many metrics deserve longer videos.
+- plan.title_page_duration_seconds controls the automatic opening title-page scene (typically 4–6s).
+- plan.closing_scene_duration_seconds controls the automatic closing takeaway scene (5–8 seconds).
+- plan.min_scene_duration_seconds is the shortest scene you are willing to use (typically 4–5s).
 - Order scenes for a clear narrative arc: hook, evidence, then build toward a takeaway.
   Do not plan a separate outro scene—the closing scene is added automatically.
-- When a paper brief is provided, scene goals must reflect its mechanism and evidence—not generic labels.
-- The last content scene should present evidence or results, not the final wrap-up narration.
+- When a paper brief is provided, scene goals must reflect its mechanism and
+  evidence—not generic labels.
+- Cover every evidence point from the paper brief in at least one content scene or shot.
+- The last content scene should deliver the strongest proof and set up the closing takeaway—not
+  introduce new material or end on raw results alone.
 - source.section must match one of the selected section titles exactly.
 - source.page and source.paragraph must refer to an available paragraph.
 - Content scene durations must be at least plan.min_scene_duration_seconds.
@@ -108,6 +120,7 @@ Rules:
 - Decide how many content scenes and shots you need; use only as many as the story requires.
 - Every scene must include a shots array with at least one entry.
 - You choose each shot's goal and duration_seconds.
+- Prefer shot durations of 4–8 seconds so narration has room to state a full fact with specifics.
 - For text shots, set page, paragraph, and framing.
 - When a detected figure or table fits the story beat, use visual with its exact label
   (e.g. "Figure 1", "Table 2") instead of page/paragraph/framing—diagrams and tables
@@ -123,13 +136,24 @@ Rules:
   highlight = a smaller band on the detail.
 
 Creative direction (storyboard goals and shot goals):
+- The automatic title-page intro scene shows the paper cover—plan content scenes knowing
+  the script will name the paper on that first shot.
 - Hook fast: the first content scene should surface the paper's most surprising or valuable idea.
-- Name what the viewer learns or feels in each scene goal—not just "show page 3".
+- Each scene goal must answer "What intuition will the viewer have after this scene?"—not
+  "show ablation table" or "show page 3".
+- Narrative arc: problem → intuitive idea → how it works simply → proof it works →
+  tradeoff → takeaway.
+- Limit ablation-heavy scenes to at most one; prefer main results and architecture figures.
+- Shot goals should describe a teaching moment with an analogy when possible
+  (e.g. "Explain MCTS as mentally simulating thousands of future games") not internal
+  paper labels.
+- When the brief provides intuition or meaning for evidence, scene goals should reflect
+  that teaching angle—not just the raw metric.
 - Plan visual payoff: when the detected list has a relevant figure or table, use it—visuals
   land faster than paragraphs of text on a phone screen.
-- Build momentum: curiosity or tension early, evidence in the middle, strongest proof before the outro.
-- Favor concrete claims (numbers, comparisons, state-of-the-art beats) over abstract methodology alone.
-- Each shot goal should describe a visual beat (reveal, zoom, compare, highlight)—not filler transitions.
+- Build momentum: curiosity early, clear explanations in the middle, strongest proof before
+  the outro.
+- Each shot goal should describe a visual beat (reveal, zoom, compare, highlight)—not filler.
 """
 
 
@@ -141,7 +165,7 @@ def _format_visual_catalog(document) -> str:
     for visual in visuals:
         caption_text = (visual.caption or "").strip()
         if caption_text:
-            caption_preview = caption_text.splitlines()[0][:120]
+            caption_preview = caption_text.splitlines()[0][:300]
             detail = f": {caption_preview}"
         else:
             detail = ""
@@ -150,7 +174,7 @@ def _format_visual_catalog(document) -> str:
 
 
 def _format_section(section: Section, index: int) -> str:
-    preview = section.content[:500] if section.content else "(no body text)"
+    preview = section.content[:2000] if section.content else "(no body text)"
     paragraphs = ", ".join(str(value) for value in section.paragraph_indices) or "unknown"
     return (
         f"{index}. {section.title} "

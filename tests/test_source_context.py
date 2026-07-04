@@ -22,15 +22,18 @@ def test_format_paper_brief_includes_evidence() -> None:
         problem="Problem",
         key_insight="Insight",
         mechanism="Mechanism",
+        intuition="Like caching hot data instead of recomputing everything.",
         evidence=[
             EvidencePoint(
                 claim="Better accuracy",
                 detail="95% on ImageNet",
+                meaning="Beats the previous best model by a wide margin on a standard benchmark",
                 source_section="Results",
             ),
             EvidencePoint(
                 claim="Another claim",
                 detail="No section cited",
+                meaning="Shows the approach generalizes beyond one dataset",
                 source_section="",
             ),
         ],
@@ -41,9 +44,10 @@ def test_format_paper_brief_includes_evidence() -> None:
     formatted = format_paper_brief(brief)
 
     assert "95% on ImageNet" in formatted
+    assert "Intuition:" in formatted
+    assert "→ Beats the previous best model" in formatted
     assert "from Results" in formatted
-    assert "Another claim: No section cited" in formatted
-    assert "from Results" in formatted
+    assert "Another claim: No section cited → Shows the approach" in formatted
 
 
 def test_find_section_supports_partial_title_match() -> None:
@@ -170,7 +174,7 @@ def test_format_shot_source_context_truncates_long_sections() -> None:
         Section(
             id="sec-1",
             title="Results",
-            content="x" * 1300,
+            content="x" * 3100,
             page_numbers=[1],
             paragraph_indices=[1],
         ),
@@ -180,7 +184,7 @@ def test_format_shot_source_context_truncates_long_sections() -> None:
     context = format_shot_source_context(document, sections, scene, scene.shots[0])
 
     assert "..." in context
-    assert len(context) < 1400
+    assert len(context) < 3200
 
 
 def test_format_shot_source_context_handles_missing_paragraph_and_visual() -> None:

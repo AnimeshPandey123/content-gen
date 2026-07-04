@@ -2,6 +2,7 @@
 
 import json
 import struct
+import time
 import urllib.error
 import urllib.request
 import wave
@@ -9,9 +10,12 @@ from pathlib import Path
 
 from app.config import Settings, get_settings
 from app.models.render import RenderProject, SceneAudio
-from app.models.script import ScriptScene
 from app.render.audio import fit_audio_to_duration, probe_wav_duration
 from app.render.project import audio_path
+from app.utils.logging import get_logger
+from app.utils.progress import TaskProgress
+
+logger = get_logger(__name__)
 
 
 class VoiceGeneratorError(Exception):
@@ -298,15 +302,29 @@ class VoiceGenerator:
         storyboard_scenes = {
             scene.id: scene for scene in project.script_plan.storyboard_result.storyboard.scenes
         }
-        for script_scene in project.script_plan.script.scenes:
+        script_scenes = project.script_plan.script.scenes
+        progress = TaskProgress("voice_generation", len(script_scenes))
+        for index, script_scene in enumerate(script_scenes, start=1):
             output_path = audio_path(project_dir, script_scene.scene)
             storyboard_scene = storyboard_scenes[script_scene.scene_id]
+            log = logger.bind(
+                scene_number=script_scene.scene,
+                scene_index=index,
+                scene_total=len(script_scenes),
+            )
+            log.info("synthesize_scene_start")
+            started = time.perf_counter()
             actual_duration = self._synthesizer.synthesize(
                 script_scene.voice,
                 output_path,
                 duration_seconds=storyboard_scene.duration_seconds,
             )
             actual_duration = probe_wav_duration(output_path)
+            log.info(
+                "synthesize_scene_finish",
+                duration_seconds=round(time.perf_counter() - started, 2),
+            )
+            progress.step(message=f"scene {script_scene.scene:02d}")
             audio_files.append(
                 SceneAudio(
                     scene_id=script_scene.scene_id,
@@ -315,6 +333,7 @@ class VoiceGenerator:
                 ),
             )
 
+        progress.finish()
         return audio_files
 
     def estimate_duration(self, text: str) -> float:

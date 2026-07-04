@@ -7,8 +7,7 @@ from app.models.section import Section
 from app.models.storyboard import Storyboard
 from app.prompts.script import build_script_prompt
 
-from tests.conftest import sample_scene, sample_video_plan
-from tests.conftest import sample_brief_response
+from tests.conftest import sample_brief_response, sample_scene, sample_video_plan
 from tests.test_stages import _sample_document
 
 
@@ -59,12 +58,28 @@ def test_build_script_prompt_includes_storyboard_scenes() -> None:
     assert "Introduce the finding" in prompt
     assert "opening title page" in prompt
     assert "closing takeaway" in prompt
-    assert "Tone and style" in prompt
-    assert "shareable" in prompt
+    assert "Explain-first voiceover" not in prompt
+    assert "Intuition-first voiceover" in prompt
+    assert "name the paper" in prompt.lower()
+    assert "think of it as" in prompt.lower()
+    assert "do not narrate" in prompt.lower()
+    assert "intuition field" in prompt
+    assert "tech-literate" in prompt.lower()
+    assert "meaning field" not in prompt
+    assert "intuition and meaning" in prompt.lower()
     assert "Paper brief" in prompt
     assert "Source excerpts" in prompt
     assert "95% accuracy" in prompt
-    assert "concrete facts" in prompt
+    assert "Target voice words" in prompt
+    assert "top 4–6 insights" in prompt
+    assert "what it measures" in prompt
+    assert "Anti-patterns" in prompt
+    assert "paper-speak" in prompt
+    assert "unexplained proper nouns" in prompt.lower()
+    assert "Introduce jargon once" in prompt
+    assert "immediately explained in plain language" in prompt
+    assert "recap the key" in prompt
+    assert "insight in one clause" in prompt
     assert "shot_order" in prompt
     assert "Do not include duration" in prompt
     assert "one script entry per storyboard shot" in prompt

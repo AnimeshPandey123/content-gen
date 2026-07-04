@@ -11,7 +11,7 @@ from app.services.screenshot_region_planner import ScreenshotRegionPlanner
 def format_paper_brief(brief: PaperBrief) -> str:
     """Format a paper brief for inclusion in LLM prompts."""
     evidence_lines = "\n".join(
-        f"- {point.claim}: {point.detail}"
+        f"- {point.claim}: {point.detail} → {point.meaning}"
         + (f" (from {point.source_section})" if point.source_section else "")
         for point in brief.evidence
     )
@@ -19,6 +19,7 @@ def format_paper_brief(brief: PaperBrief) -> str:
         f"Problem: {brief.problem}\n"
         f"Key insight: {brief.key_insight}\n"
         f"Mechanism: {brief.mechanism}\n"
+        f"Intuition: {brief.intuition}\n"
         f"Evidence:\n{evidence_lines}\n"
         f"Limitations: {brief.limitations}\n"
         f"So what: {brief.so_what}"
@@ -48,8 +49,8 @@ def format_shot_source_context(
     section = find_section(sections, scene.source.section)
     if section and section.content.strip():
         preview = section.content.strip()
-        if len(preview) > 1200:
-            preview = preview[:1200] + "..."
+        if len(preview) > 3000:
+            preview = preview[:3000] + "..."
         parts.append(f"Section ({section.title}):\n{preview}")
 
     planner = ScreenshotRegionPlanner()

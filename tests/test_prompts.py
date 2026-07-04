@@ -19,3 +19,6 @@ def test_build_section_selection_prompt_includes_candidates() -> None:
     assert '"importance": 0.95' in prompt
     assert "Decide how many" in prompt
     assert "Choose the top" not in prompt
+    assert "tech-literate" in prompt.lower()
+    assert "ablation" in prompt.lower()
+    assert "conceptual story" in prompt
