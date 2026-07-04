@@ -56,13 +56,32 @@ class SubtitleGenerator:
             words = [script_scene.overlay.strip() or " "]
 
         timings = self._word_timings(words, duration_seconds)
-        caption_text = self._build_caption_text(timings)
         header = self._ass_header()
-        event = (
-            f"Dialogue: 0,{self._format_time(0.0)},{self._format_time(duration_seconds)},"
-            f"Default,,0,0,0,,{caption_text}"
-        )
-        return header + event + "\n"
+        events = self._build_dialogue_events(timings)
+        return header + events
+
+    def _build_dialogue_events(self, timings: list[tuple[str, float, float]]) -> str:
+        """Emit one on-screen caption line at a time, timed to its words."""
+        if not timings:
+            return (
+                f"Dialogue: 0,{self._format_time(0.0)},{self._format_time(0.01)},"
+                "Default,,0,0,0,, \n"
+            )
+
+        events: list[str] = []
+        for index in range(0, len(timings), _WORDS_PER_LINE):
+            chunk = timings[index : index + _WORDS_PER_LINE]
+            start = chunk[0][1]
+            end = chunk[-1][2]
+            line = " ".join(
+                self._format_karaoke_word(word, word_start, word_end)
+                for word, word_start, word_end in chunk
+            )
+            events.append(
+                f"Dialogue: 0,{self._format_time(start)},{self._format_time(end)},"
+                f"Default,,0,0,0,,{line}\n",
+            )
+        return "".join(events)
 
     def _ass_header(self) -> str:
         font_size = self._settings.subtitle_font_size
@@ -105,16 +124,6 @@ class SubtitleGenerator:
             elapsed = end
 
         return timings
-
-    def _build_caption_text(self, timings: list[tuple[str, float, float]]) -> str:
-        lines: list[str] = []
-        for index in range(0, len(timings), _WORDS_PER_LINE):
-            chunk = timings[index : index + _WORDS_PER_LINE]
-            line = " ".join(
-                self._format_karaoke_word(word, start, end) for word, start, end in chunk
-            )
-            lines.append(line)
-        return r"\N".join(lines)
 
     def _format_karaoke_word(self, word: str, start: float, end: float) -> str:
         duration_cs = max(int(round((end - start) * 100)), 1)

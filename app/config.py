@@ -143,7 +143,7 @@ class Settings(BaseSettings):
         description="Maximum narration speed-up applied when fitting scene duration",
     )
     chatterbox_api_url: str = Field(
-        default="http://127.0.0.1:4123",
+        default="http://192.168.0.158:8000",
         description="Base URL for a locally hosted Chatterbox TTS API (OpenAI-compatible)",
     )
     chatterbox_voice: str | None = Field(

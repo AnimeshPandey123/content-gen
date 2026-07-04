@@ -140,7 +140,7 @@ The storyboard LLM returns a `plan` object (`target_video_duration_seconds`, `ti
 | `TTS_MODEL` | `gemini-2.5-flash-preview-tts` | Gemini TTS model |
 | `TTS_VOICE` | `Kore` | Prebuilt Gemini voice name |
 | `TTS_SAMPLE_RATE` | `24000` | Output WAV sample rate |
-| `CHATTERBOX_API_URL` | `http://127.0.0.1:4123` | Base URL for local Chatterbox TTS API |
+| `CHATTERBOX_API_URL` | `http://192.168.0.158:8000` | Base URL for local Chatterbox TTS API |
 | `CHATTERBOX_VOICE` | — | Voice name in Chatterbox library (server default when unset) |
 | `CHATTERBOX_EXAGGERATION` | `0.5` | Chatterbox emotion intensity |
 | `CHATTERBOX_CFG_WEIGHT` | `0.5` | Chatterbox pace control |

@@ -24,7 +24,7 @@ def test_settings_defaults() -> None:
     assert settings.tts_model == "gemini-2.5-flash-preview-tts"
     assert settings.tts_voice == "Kore"
     assert settings.tts_sample_rate == 24000
-    assert settings.chatterbox_api_url == "http://127.0.0.1:4123"
+    assert settings.chatterbox_api_url == "http://192.168.0.158:8000"
     assert settings.chatterbox_voice is None
     assert settings.chatterbox_exaggeration == 0.5
     assert settings.max_retries == 3
